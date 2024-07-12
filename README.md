@@ -11,7 +11,3 @@
 2. See available commands by entering `info` in the shell.
 3. Run the script dump job using the `dump` command.
 
-### Checkpoints
-
-Only the latest two checkpoint files are kept due to their large sizes.
-We keep two checkpoint files rather than one in case the latest one is corrupt (e.g., the job is killed while the file is being uploaded), or the latest one is invalid due to a rollback.
