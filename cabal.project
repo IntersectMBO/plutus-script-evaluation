@@ -37,15 +37,14 @@ constraints:
   , plutus-ledger-api ^>= 1.30
   , plutus-tx         ^>= 1.30
   , plutus-tx-plugin  ^>= 1.30
-
-allow-newer:
-  strict-containers:primitive
+  , prettyprinter-configurable ^>= 1.30
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus
-  tag: 71f4aa2c4aa5d52214a6e3e9eb917f65ee7c0d4d
-  --sha256: sha256-V7f7DHOOe++A3CckhhOiaXVI0818oq82AJNMBGpSul4=
+  tag: b49bd634237836483f831ef89fda358d0773490a
+  --sha256: sha256-HbjpsyNl8bhHL+dFzLyMGDmYXtd+ptso8Os0iTnqA/A=
   subdir:
     plutus-core
     plutus-ledger-api
+    prettyprinter-configurable
