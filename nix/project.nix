@@ -18,6 +18,11 @@ let
     {
       src = ../.;
 
+      flake.variants.profiled.modules = [{
+        enableProfiling = lib.mkForce true;
+        enableLibraryProfiling = lib.mkForce true;
+      }];
+
       shell.withHoogle = false;
 
       inputMap = {
