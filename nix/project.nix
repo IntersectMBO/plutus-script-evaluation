@@ -19,8 +19,8 @@ let
       src = ../.;
 
       flake.variants.profiled.modules = [{
-        enableProfiling = true;
-        enableLibraryProfiling = true;
+        enableProfiling = lib.mkForce true;
+        enableLibraryProfiling = lib.mkForce true;
       }];
 
       shell.withHoogle = false;
