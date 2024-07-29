@@ -14,7 +14,7 @@ import Cardano.Api qualified as Cardano
 import Codec.Serialise qualified as CBOR
 import Codec.Serialise.Decoding qualified as CBOR
 import Codec.Serialise.Encoding qualified as CBOR
-import Control.Monad.Trans.State (StateT)
+import Control.Monad.Trans.State.Strict (StateT)
 import Data.Proxy (Proxy (Proxy))
 import Data.Word (Word64)
 import Ouroboros.Consensus.Cardano.Block (CardanoCodecConfig)
