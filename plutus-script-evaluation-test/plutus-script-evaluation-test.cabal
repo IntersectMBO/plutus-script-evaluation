@@ -33,7 +33,7 @@ library testlib
     Plutus.Script.Evaluation.Types
 
   build-depends:
-    , base                                                              >=4.9 && <5
+    , base                                         >=4.9 && <5
     , base16-bytestring
     , cardano-api
     , cardano-ledger-alonzo
@@ -44,7 +44,8 @@ library testlib
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}
+    , plutus-ledger-api
+    , plutus-ledger-api:plutus-ledger-api-testlib
     , PyF
     , serialise
     , streaming
