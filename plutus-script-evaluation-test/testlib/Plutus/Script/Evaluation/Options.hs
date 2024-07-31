@@ -14,6 +14,7 @@ import Cardano.Api (File (File), FileDirection (In), NodeConfigFile, SocketPath)
 import Cardano.Api qualified as Cardano
 import Data.Word (Word64)
 import Options.Applicative qualified as O
+import Path (Dir, SomeBase, parseSomeDir)
 
 data Options = Options
   { optsConfigPath :: NodeConfigFile In
@@ -21,8 +22,8 @@ data Options = Options
   , optsNetworkId :: Cardano.NetworkId
   , optsBlocksPerFile :: Word64
   , optsEventsPerFile :: Word64
-  , optsDumpDir :: FilePath
-  , optsCheckpointDir :: FilePath
+  , optsDumpDir :: SomeBase Dir
+  , optsCheckpointDir :: SomeBase Dir
   }
   deriving (Show)
 
@@ -63,22 +64,25 @@ options = do
         , O.help "Write approximately this many events per file (unless blocks-per-file is exceeded)"
         ]
   optsDumpDir <-
-    O.strOption
-      ( mconcat
-          [ O.long "dump-dir"
-          , O.metavar "DUMP_DIR"
-          , O.help "Directory to dump the events to"
-          ]
-      )
+    O.option absDirParser $
+      mconcat
+        [ O.long "dump-dir"
+        , O.metavar "DUMP_DIR"
+        , O.help "Directory to dump the events to"
+        ]
+
   optsCheckpointDir <-
-    O.strOption
-      ( mconcat
-          [ O.long "checkpoint-dir"
-          , O.metavar "CHECKPOINT_DIR"
-          , O.help "Directory to store the checkpoint files"
-          ]
-      )
+    O.option absDirParser $
+      mconcat
+        [ O.long "checkpoint-dir"
+        , O.metavar "CHECKPOINT_DIR"
+        , O.help "Directory to store the checkpoint files"
+        ]
+
   pure Options{..}
+
+absDirParser :: O.ReadM (SomeBase Dir)
+absDirParser = O.str >>= either (fail . show) pure . parseSomeDir
 
 parserInfo :: O.ParserInfo Options
 parserInfo =

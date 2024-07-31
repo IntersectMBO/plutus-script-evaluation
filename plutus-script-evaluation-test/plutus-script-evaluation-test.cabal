@@ -5,18 +5,31 @@ version:       0.1.0.0
 common lang
   default-language:   Haskell2010
   default-extensions:
+    BlockArguments
+    DataKinds
+    DeriveAnyClass
     DeriveFoldable
     DeriveFunctor
     DeriveGeneric
     DeriveLift
     DeriveTraversable
+    DerivingStrategies
     ExplicitForAll
+    FlexibleContexts
+    GADTs
     GeneralizedNewtypeDeriving
     ImportQualifiedPost
     LambdaCase
     NamedFieldPuns
+    NamedFieldPuns
+    OverloadedStrings
+    QuasiQuotes
+    RecordWildCards
     ScopedTypeVariables
     StandaloneDeriving
+    TupleSections
+    TypeApplications
+    ViewPatterns
 
   ghc-options:
     -O2 -Wall -Widentities -Wincomplete-record-updates
@@ -27,28 +40,37 @@ common lang
 library testlib
   import:          lang
   hs-source-dirs:  testlib
+  other-modules:
+    FileStorage
+    LedgerEvents
+    LedgerStates
+    Streaming
+
   exposed-modules:
     Plutus.Script.Evaluation.Dump
     Plutus.Script.Evaluation.Options
     Plutus.Script.Evaluation.Types
 
   build-depends:
-    , base                                         >=4.9 && <5
+    , async
+    , base                                         >=4.9    && <5
     , base16-bytestring
     , cardano-api
     , cardano-ledger-alonzo
     , cardano-ledger-core
-    , cardano-streaming
-    , extra
-    , filepath
+    , cardano-slotting                             ^>=0.2
+    , containers                                   ^>=0.6.7
+    , dlist
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
+    , ouroboros-network-protocols
+    , path
+    , path-io
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
-    , PyF
     , serialise
-    , streaming
+    , string-interpolate                           ^>=0.3
     , text
     , transformers
 
@@ -56,6 +78,7 @@ executable dump-script-events
   import:         lang
   hs-source-dirs: dump-script-events
   main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
   build-depends:
     , base                  >=4.9 && <5
     , optparse-applicative
