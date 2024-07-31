@@ -44,8 +44,7 @@ saveLedgerState checkpointDir checkpoint@(Checkpoint point _state) = do
   CBOR.writeFileSerialise filePath checkpoint
 
 readLedgerState :: Path Abs File -> IO Checkpoint
-readLedgerState file = do
-  CBOR.readFileDeserialise (toFilePath file)
+readLedgerState file = CBOR.readFileDeserialise (toFilePath file)
 
 saveEvents :: Path Abs Dir -> ChainPoint -> ScriptEvaluationEvents -> IO ()
 saveEvents eventsDir point events = do

@@ -18,7 +18,6 @@ data Options = Options
   { optsConfigPath :: NodeConfigFile In
   , optsSocketPath :: SocketPath
   , optsNetworkId :: Cardano.NetworkId
-  , optsBlocksPerFile :: Word64
   , optsEventsPerFile :: Word64
   , optsDumpDir :: SomeBase Dir
   , optsCheckpointDir :: SomeBase Dir
@@ -46,20 +45,13 @@ options = do
             ]
         )
   optsNetworkId <- networkIdParser
-  optsBlocksPerFile <-
-    O.option O.auto $
-      mconcat
-        [ O.long "blocks-per-file"
-        , O.metavar "BLOCKS_PER_FILE"
-        , O.help "Write events in this many blocks per file (unless events-per-file is exceeded)"
-        ]
   optsEventsPerFile <-
     O.option O.auto $
       mconcat
         [ O.long "events-per-file"
         , O.metavar "EVENTS_PER_FILE"
         , O.value maxBound
-        , O.help "Write approximately this many events per file (unless blocks-per-file is exceeded)"
+        , O.help "Write approximately this many events per file"
         ]
   optsDumpDir <-
     O.option absDirParser $
