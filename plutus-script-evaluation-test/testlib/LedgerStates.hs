@@ -4,44 +4,38 @@ import Cardano.Api.Shelley qualified as C
 import Control.Exception (throw)
 import Data.Function ((&))
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Render qualified
 import Streaming (ChainSyncEvent (RollBackward, RollForward))
 
-data LedgerStateHistory = LedgerStateHistory
-  { lastLedgerState :: C.LedgerState
-  , checkpointsDir :: FilePath
-  , env :: C.Env
+data IndexerState = IndexerState
+  { env :: C.Env
+  , lastLedgerState :: C.LedgerState
   }
 
 makeLedgerStateEventsIndexer
-  :: C.Env
-  -> C.LedgerState
+  :: IndexerState
+  -> C.ChainPoint
   -> ((C.ChainPoint, C.LedgerState, [C.LedgerEvent]) -> IO ())
   -> IO (ChainSyncEvent -> IO ())
-makeLedgerStateEventsIndexer env initialLedgerState callback = do
-  ref <- newIORef (env, initialLedgerState)
+makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
+  ref <- newIORef initialIndexerState
   pure \case
     RollForward block@(C.BlockInMode _era (C.Block header _)) _chainTip -> do
       let (C.BlockHeader slot hash _blockNo) = header
-      let chainPoint = C.ChainPoint slot hash
-      putStrLn $
-        "Roll forward to "
-          <> maybe "Genesis" show (C.chainPointToSlotNo chainPoint)
-      (env', ledgerState) <- readIORef ref
+      let point = C.ChainPoint slot hash
+      putStrLn $ "Roll forward to " <> Render.chainPointSlot point
+      indexerState@IndexerState{..} <- readIORef ref
       (newLedgerState, ledgerEvents) <-
-        C.applyBlock env' ledgerState C.FullValidation block
+        C.applyBlock env lastLedgerState C.FullValidation block
           & either throw pure
-
-      writeIORef ref (env', newLedgerState)
-      callback (chainPoint, newLedgerState, ledgerEvents)
-    RollBackward chainPoint chainTip -> do
-      case chainPoint of
+      writeIORef ref indexerState{lastLedgerState = newLedgerState}
+      callback (point, newLedgerState, ledgerEvents)
+    RollBackward point _chainTip
+      | point == startedFrom ->
+          putStrLn $ "Initial Rollback to: " <> Render.chainPointSlot point
+    RollBackward point _chainTip ->
+      case point of
         C.ChainPointAtGenesis ->
-          fail "Rollback to genesis"
+          fail "Unexpected rollback to genesis"
         C.ChainPoint _slotNo _tip -> do
-          putStrLn "!!!"
-          putStrLn $
-            "Rollback: "
-              <> show chainPoint
-              <> ", tip: "
-              <> show chainTip
-          putStrLn "!!!"
+          fail $ "Unexpected rollback: " <> Render.chainPointSlot point
