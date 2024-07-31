@@ -25,11 +25,11 @@ import Path (
   (</>),
  )
 import Path.IO (listDir)
-import Plutus.Script.Evaluation.Types (Checkpoint (Checkpoint))
 import PlutusLedgerApi.Test.EvaluationEvent (ScriptEvaluationEvents)
 import Render qualified
 import Text.Printf (printf)
 import Text.Read (readMaybe)
+import Types (Checkpoint (Checkpoint))
 
 saveLedgerState :: Path Abs Dir -> Checkpoint -> IO ()
 saveLedgerState checkpointDir checkpoint@(Checkpoint point _state) = do

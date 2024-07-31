@@ -1,7 +1,7 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Plutus.Script.Evaluation.Types (
+module Types (
   Checkpoint (..),
   StreamerState (..),
   ScriptM,

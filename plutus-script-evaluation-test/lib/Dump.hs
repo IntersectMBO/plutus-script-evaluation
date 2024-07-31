@@ -1,4 +1,4 @@
-module Plutus.Script.Evaluation.Dump (dumpScriptEvents) where
+module Dump (dumpScriptEvents) where
 
 import LedgerEvents (makeEventIndexer)
 import LedgerStates (
@@ -6,11 +6,11 @@ import LedgerStates (
   lastCheckpoint,
   makeLedgerStateEventsIndexer,
  )
+import Options qualified as O
 import Path.IO (ensureDir, makeAbsolute)
-import Plutus.Script.Evaluation.Options qualified as O
-import Plutus.Script.Evaluation.Types (Checkpoint (Checkpoint))
 import Render qualified
 import Streaming (subscribeToChainSyncEvents)
+import Types (Checkpoint (Checkpoint))
 
 {- | Stream blocks from a local node, and periodically dump ledger events
 and checkpoint ledger state.

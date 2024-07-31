@@ -34,7 +34,6 @@ import Data.String.Interpolate (__i)
 import Data.Word (Word64)
 import FileStorage qualified
 import Path (Abs, Dir, Path)
-import Plutus.Script.Evaluation.Types (Checkpoint (Checkpoint))
 import PlutusLedgerApi.Common (
   Data,
   MajorProtocolVersion (MajorProtocolVersion),
@@ -56,6 +55,7 @@ import PlutusLedgerApi.Test.EvaluationEvent (
     ScriptEvaluationSuccess
   ),
  )
+import Types (Checkpoint (Checkpoint))
 
 data EventHandlerState = EventHandlerState
   { costParamsV1 :: Maybe [Integer]

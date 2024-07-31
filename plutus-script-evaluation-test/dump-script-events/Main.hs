@@ -1,8 +1,8 @@
 module Main (main) where
 
+import Dump (dumpScriptEvents)
+import Options (parserInfo)
 import Options.Applicative qualified as O
-import Plutus.Script.Evaluation.Dump (dumpScriptEvents)
-import Plutus.Script.Evaluation.Options (parserInfo)
 
 {- Example:
 

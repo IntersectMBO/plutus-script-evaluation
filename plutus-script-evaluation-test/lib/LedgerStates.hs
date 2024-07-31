@@ -9,9 +9,9 @@ import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Map.Strict qualified as Map
 import FileStorage qualified
 import Path (Abs, Dir, Path)
-import Plutus.Script.Evaluation.Types (Checkpoint (Checkpoint))
 import Render qualified
 import Streaming (ChainSyncEvent (RollBackward, RollForward))
+import Types (Checkpoint (Checkpoint))
 
 data IndexerState = IndexerState
   { env :: C.Env

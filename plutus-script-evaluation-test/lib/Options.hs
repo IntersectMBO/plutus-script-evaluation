@@ -1,9 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StrictData #-}
 
-module Plutus.Script.Evaluation.Options (
+module Options (
   Options (..),
   options,
   parserInfo,

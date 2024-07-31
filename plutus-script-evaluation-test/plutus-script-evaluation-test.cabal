@@ -37,20 +37,20 @@ common lang
     -Wnoncanonical-monad-instances -Wredundant-constraints
     -Wunused-packages
 
-library testlib
+library
   import:          lang
-  hs-source-dirs:  testlib
+  hs-source-dirs:  lib
   other-modules:
     FileStorage
     LedgerEvents
     LedgerStates
     Render
     Streaming
+    Types
 
   exposed-modules:
-    Plutus.Script.Evaluation.Dump
-    Plutus.Script.Evaluation.Options
-    Plutus.Script.Evaluation.Types
+    Dump
+    Options
 
   build-depends:
     , async
@@ -81,6 +81,6 @@ executable dump-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   build-depends:
-    , base                  >=4.9 && <5
+    , base                           >=4.9 && <5
     , optparse-applicative
-    , testlib
+    , plutus-script-evaluation-test
