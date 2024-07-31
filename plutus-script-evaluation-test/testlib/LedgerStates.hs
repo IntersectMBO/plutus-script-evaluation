@@ -1,9 +1,15 @@
 module LedgerStates where
 
+import Cardano.Api.Shelley (FileDirection (In), NodeConfigFile, docToString)
 import Cardano.Api.Shelley qualified as C
 import Control.Exception (throw)
+import Control.Monad.Trans.Except (runExceptT)
 import Data.Function ((&))
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.Map.Strict qualified as Map
+import FileStorage qualified
+import Path (Abs, Dir, Path)
+import Plutus.Script.Evaluation.Types (Checkpoint (Checkpoint))
 import Render qualified
 import Streaming (ChainSyncEvent (RollBackward, RollForward))
 
@@ -39,3 +45,17 @@ makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
           fail "Unexpected rollback to genesis"
         C.ChainPoint _slotNo _tip -> do
           fail $ "Unexpected rollback: " <> Render.chainPointSlot point
+
+lastCheckpoint :: NodeConfigFile 'In -> Path Abs Dir -> IO (C.Env, Checkpoint)
+lastCheckpoint optsConfigPath checkpointsDir = do
+  (env, ledgerStateAtGenesis) <-
+    runExceptT (C.initialLedgerState optsConfigPath)
+      >>= either (fail . docToString . C.prettyError) pure
+  checkpoints <- FileStorage.ledgerStates checkpointsDir
+  (env,) <$> case Map.lookupMax checkpoints of
+    Nothing -> do
+      putStrLn "No checkpoint found, starting from genesis"
+      pure $ Checkpoint C.ChainPointAtGenesis ledgerStateAtGenesis
+    Just (_lastSlotNo, point) -> do
+      putStrLn $ "Reading the last checkpoint file: " <> show point
+      FileStorage.readLedgerState point
