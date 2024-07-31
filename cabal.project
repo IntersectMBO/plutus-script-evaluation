@@ -30,7 +30,6 @@ benchmarks: true
 test-show-details: direct
 
 packages:
-  cardano-streaming
   plutus-script-evaluation-test
 
 constraints:
