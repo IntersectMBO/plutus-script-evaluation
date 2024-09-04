@@ -25,7 +25,7 @@ cabalProject: {
           --mainnet \
           --socket-path "$CARDANO_NODE_SOCKET_PATH" \
           --config "$CARDANO_NODE_CONFIG_PATH" \
-          --events-per-file 50000 \
+          --events-per-file 10000 \
           --dump-dir dumps \
           --checkpoint-dir dumps/checkpoints \
       '';
@@ -37,7 +37,7 @@ cabalProject: {
   # };
 
   shellHook = ''
-    figlet "Plutus Script Evaluation Test"
+    figlet "Plutus Script Evaluation"
   '';
 
   preCommit = {

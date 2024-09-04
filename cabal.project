@@ -30,5 +30,5 @@ benchmarks: true
 test-show-details: direct
 
 packages:
-  plutus-script-evaluation-test
+  plutus-script-evaluation
 

@@ -1,10 +1,11 @@
 cabal-version: 3.0
-name:          plutus-script-evaluation-test
+name:          plutus-script-evaluation
 version:       0.1.0.0
 
 common lang
   default-language:   Haskell2010
   default-extensions:
+    BangPatterns
     BlockArguments
     DataKinds
     DeriveAnyClass
@@ -33,14 +34,16 @@ common lang
 
   ghc-options:
     -O2 -Wall -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wmissing-import-lists
-    -Wnoncanonical-monad-instances -Wredundant-constraints
-    -Wunused-packages
+    -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+    -Wredundant-constraints -Wunused-packages
+
+common deps
+  build-depends: base >=4.9 && <5
 
 library
-  import:          lang
+  import:          lang, deps
   hs-source-dirs:  lib
-  other-modules:
+  exposed-modules:
     FileStorage
     LedgerEvents
     LedgerStates
@@ -48,13 +51,8 @@ library
     Streaming
     Types
 
-  exposed-modules:
-    Dump
-    Options
-
   build-depends:
     , async
-    , base                                         >=4.9      && <5
     , base16-bytestring
     , cardano-api                                  ^>=9.2.0.0
     , cardano-ledger-alonzo
@@ -62,7 +60,6 @@ library
     , cardano-slotting                             ^>=0.2.0.0
     , containers
     , dlist
-    , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , ouroboros-network-protocols
@@ -76,11 +73,36 @@ library
     , transformers
 
 executable dump-script-events
-  import:         lang
+  import:         lang, deps
   hs-source-dirs: dump-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
+  other-modules:
+    Dump
+    Options
+
   build-depends:
-    , base                           >=4.9 && <5
+    , cardano-api               ^>=9.2.0.0
     , optparse-applicative
-    , plutus-script-evaluation-test
+    , path
+    , path-io
+    , plutus-script-evaluation
+
+executable aggregate-script-events
+  import:         lang, deps
+  hs-source-dirs: aggregate-script-events
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:
+    Aggregate
+    Options
+
+  build-depends:
+    , cardano-api                                  ^>=9.2.0.0
+    , nothunks
+    , optparse-applicative
+    , path
+    , path-io
+    , plutus-ledger-api
+    , plutus-ledger-api:plutus-ledger-api-testlib
+    , plutus-script-evaluation
