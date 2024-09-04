@@ -54,13 +54,13 @@ library
 
   build-depends:
     , async
-    , base                                         >=4.9    && <5
+    , base                                         >=4.9      && <5
     , base16-bytestring
-    , cardano-api
+    , cardano-api                                  ^>=9.2.0.0
     , cardano-ledger-alonzo
     , cardano-ledger-core
-    , cardano-slotting                             ^>=0.2
-    , containers                                   ^>=0.6.7
+    , cardano-slotting                             ^>=0.2.0.0
+    , containers
     , dlist
     , optparse-applicative
     , ouroboros-consensus
