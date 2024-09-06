@@ -26,8 +26,16 @@ cabalProject: {
           --socket-path "$CARDANO_NODE_SOCKET_PATH" \
           --config "$CARDANO_NODE_CONFIG_PATH" \
           --events-per-file 10000 \
-          --dump-dir dumps \
+          --event-dir dumps/events \
           --checkpoint-dir dumps/checkpoints \
+      '';
+    };
+
+    aggregate = {
+      description = "Aggregate Plutus Script events from mainnet";
+      group = "general";
+      exec = ''
+        cabal run aggregate-script-events -- --event-dir dumps/events
       '';
     };
   };
