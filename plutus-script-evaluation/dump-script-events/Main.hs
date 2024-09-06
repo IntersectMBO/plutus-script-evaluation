@@ -12,7 +12,7 @@ cabal run dump-script-events -- \
   --config "$CARDANO_NODE_CONFIG_PATH" \
   --blocks-per-file 50000 \
   --events-per-file 50000 \
-  --dump-dir dumps \
+  --event-dir dumps/events \
   --checkpoint-dir dumps/checkpoints
 -}
 main :: IO ()

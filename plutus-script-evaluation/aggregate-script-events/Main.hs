@@ -6,7 +6,7 @@ import Options.Applicative (execParser)
 
 {- Example:
 
-cabal run aggregate-script-events -- --events-dir dumps/events
+cabal run aggregate-script-events -- --event-dir dumps/events
 
 -}
 main :: IO ()

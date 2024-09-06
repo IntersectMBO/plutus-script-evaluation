@@ -99,7 +99,6 @@ executable aggregate-script-events
 
   build-depends:
     , cardano-api                                  ^>=9.2.0.0
-    , nothunks
     , optparse-applicative
     , path
     , path-io

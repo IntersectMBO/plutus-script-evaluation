@@ -8,9 +8,6 @@ module Options (
 )
 where
 
-import Cardano.Api (File (File), FileDirection (In), NodeConfigFile, SocketPath)
-import Cardano.Api qualified as Cardano
-import Data.Word (Word64)
 import Options.Applicative qualified as O
 import Path (Dir, SomeBase, parseSomeDir)
 
@@ -24,8 +21,8 @@ options = do
   optsEventsDir <-
     O.option absDirParser $
       mconcat
-        [ O.long "events-dir"
-        , O.metavar "EVENTS_DIR"
+        [ O.long "event-dir"
+        , O.metavar "EVENT_DIR"
         , O.help "Directory to read events from"
         ]
 

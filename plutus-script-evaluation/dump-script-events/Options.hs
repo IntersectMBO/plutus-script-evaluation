@@ -56,8 +56,8 @@ options = do
   optsDumpDir <-
     O.option absDirParser $
       mconcat
-        [ O.long "dump-dir"
-        , O.metavar "DUMP_DIR"
+        [ O.long "event-dir"
+        , O.metavar "EVENT_DIR"
         , O.help "Directory to dump the events to"
         ]
 
