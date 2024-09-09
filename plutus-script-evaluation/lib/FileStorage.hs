@@ -10,8 +10,6 @@ import Cardano.Api.Shelley (
 import Codec.Serialise qualified as CBOR
 import Data.Function ((&))
 import Data.List (sortBy)
-import Data.Map.Strict (Map)
-import Data.Map.Strict qualified as Map
 import Data.Maybe (maybeToList)
 import Data.Ord (comparing)
 import Path (
@@ -60,8 +58,8 @@ saveEvents eventsDir point events = do
   putStrLn $ "Writing events to " <> filePath
   CBOR.writeFileSerialise filePath events
 
-listEvents :: Path Abs Dir -> IO [(SlotNo, Path Abs File)]
-listEvents eventsDir = do
+listFiles :: Path Abs Dir -> IO [(SlotNo, Path Abs File)]
+listFiles eventsDir = do
   (_dirs, files) <- listDir eventsDir
   pure $
     sortBy
@@ -73,16 +71,6 @@ readEventsFile path = do
   let filePath = toFilePath path
   putStrLn $ "Reading events from " <> filePath
   CBOR.readFileDeserialise filePath
-
-ledgerStates :: Path Abs Dir -> IO (Map SlotNo (Path Abs File))
-ledgerStates checkpoints = do
-  (_dirs, files) <- listDir checkpoints
-  pure $
-    Map.fromList
-      [ (slot, file)
-      | file <- files
-      , slot <- maybeToList (parseSlotNo file)
-      ]
 
 parseSlotNo :: Path Abs File -> Maybe SlotNo
 parseSlotNo fp = do

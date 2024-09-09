@@ -6,7 +6,6 @@ import Control.Exception (throw)
 import Control.Monad.Trans.Except (runExceptT)
 import Data.Function ((&))
 import Data.IORef (newIORef, readIORef, writeIORef)
-import Data.Map.Strict qualified as Map
 import FileStorage qualified
 import Path (Abs, Dir, Path)
 import Render qualified
@@ -51,11 +50,12 @@ lastCheckpoint optsConfigPath checkpointsDir = do
   (env, ledgerStateAtGenesis) <-
     runExceptT (C.initialLedgerState optsConfigPath)
       >>= either (fail . docToString . C.prettyError) pure
-  checkpoints <- FileStorage.ledgerStates checkpointsDir
-  (env,) <$> case Map.lookupMax checkpoints of
-    Nothing -> do
+  checkpoints <- FileStorage.listFiles checkpointsDir
+  (env,) <$> case checkpoints of
+    [] -> do
       putStrLn "No checkpoint found, starting from genesis"
       pure $ Checkpoint C.ChainPointAtGenesis ledgerStateAtGenesis
-    Just (_lastSlotNo, point) -> do
+    someCheckpoints -> do
+      let (_lastSlotNo, point) = last someCheckpoints
       putStrLn $ "Reading the last checkpoint file: " <> show point
       FileStorage.readLedgerState point

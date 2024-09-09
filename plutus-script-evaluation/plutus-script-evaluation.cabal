@@ -58,7 +58,6 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
-    , containers
     , dlist
     , ouroboros-consensus
     , ouroboros-consensus-cardano

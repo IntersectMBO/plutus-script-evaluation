@@ -18,7 +18,7 @@ import PlutusLedgerApi.Test.EvaluationEvent (
 aggregateScriptEvents :: Options -> IO ()
 aggregateScriptEvents Options{..} = do
   eventsDir <- makeAbsolute optsEventsDir
-  FileStorage.listEvents eventsDir >>= \case
+  FileStorage.listFiles eventsDir >>= \case
     [] -> putStrLn "No events to aggregate"
     files -> do
       metrics <- foldlM aggregateFile mempty files
