@@ -6,28 +6,18 @@ module Streaming (
 ) where
 
 import Cardano.Api (SocketPath)
-import Cardano.Api.ChainSync.ClientPipelined (
-  Nat (Succ, Zero),
-  PipelineDecision (Collect),
- )
+import Cardano.Api.ChainSync.Client
 import Cardano.Api.Shelley qualified as C
-import Cardano.Slotting.Slot (WithOrigin (At, Origin))
-import Control.Concurrent.Async (
-  ExceptionInLinkedThread (ExceptionInLinkedThread),
-  link,
-  withAsync,
- )
+import Cardano.Slotting.Block (BlockNo (..))
+import Cardano.Slotting.Slot (WithOrigin (At, Origin), withOrigin)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async (ExceptionInLinkedThread (..), link, withAsync)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-import Control.Exception (
-  Exception,
-  SomeException (SomeException),
-  handle,
-  throw,
- )
-import Control.Monad (forever)
+import Control.Exception (Exception, SomeException (..), handle, throw)
+import Control.Monad (forever, when)
+import Control.Monad.IO.Class (liftIO)
 import GHC.Generics (Generic)
-import Ouroboros.Network.Protocol.ChainSync.ClientPipelined qualified as CSP
-import Ouroboros.Network.Protocol.ChainSync.PipelineDecision (pipelineDecisionMax)
+import GHC.Word (Word64)
 
 {- | `subscribeToChainSyncEvents` uses the chain-sync mini-protocol to
 connect to a locally running node and fetch blocks from the given
@@ -58,49 +48,59 @@ subscribeToChainSyncEvents socketPath networkId points callback = do
           }
         C.LocalNodeClientProtocols
           { C.localChainSyncClient =
-              C.LocalChainSyncClientPipelined . CSP.ChainSyncClientPipelined $
-                pure $
-                  CSP.SendMsgFindIntersect
-                    points
-                    CSP.ClientPipelinedStIntersect
-                      { CSP.recvMsgIntersectFound = \_point _tip ->
-                          pure $ requestMore Origin Origin Zero
-                      , CSP.recvMsgIntersectNotFound =
-                          throw NoIntersectionFound
-                      }
+              C.LocalChainSyncClient . C.ChainSyncClient . pure $
+                SendMsgFindIntersect points onIntersect
           , C.localStateQueryClient = Nothing
           , C.localTxMonitoringClient = Nothing
           , C.localTxSubmissionClient = Nothing
           }
-    requestMore
-      :: WithOrigin C.BlockNo
-      -> WithOrigin C.BlockNo
-      -> Nat n
-      -> CSP.ClientPipelinedStIdle n C.BlockInMode C.ChainPoint C.ChainTip IO ()
-    requestMore clientTip serverTip rqsInFlight =
-      case pipelineDecisionMax 100 rqsInFlight clientTip serverTip of
-        -- handle a response
-        Collect -> case rqsInFlight of
-          Succ inFlight ->
-            CSP.CollectResponse
-              Nothing
-              CSP.ClientStNext
-                { CSP.recvMsgRollForward = \bim ct -> do
-                    putMVar nextChainSyncEvent (RollForward bim ct)
-                    pure $
-                      requestMore
-                        (At $ bimBlockNo bim)
-                        (fromChainTip ct)
-                        inFlight
-                , CSP.recvMsgRollBackward = \cp ct -> do
-                    putMVar nextChainSyncEvent (RollBackward cp ct)
-                    pure $ requestMore Origin (fromChainTip ct) inFlight
-                }
-        -- fire more requests
-        _ ->
-          CSP.SendMsgRequestNextPipelined
-            (pure ())
-            (requestMore clientTip serverTip (Succ rqsInFlight))
+
+    onIntersect =
+      ClientStIntersect
+        { recvMsgIntersectFound = \chainPoint tip ->
+            C.ChainSyncClient do
+              putMVar nextChainSyncEvent (RollBackward chainPoint tip)
+              sendRequestNext
+        , recvMsgIntersectNotFound = throw NoIntersectionFound
+        }
+
+    sendRequestNext =
+      pure $ SendMsgRequestNext (pure ()) do
+        ClientStNext
+          { recvMsgRollForward = \blockInMode tip ->
+              C.ChainSyncClient do
+                let blockNo = bimBlockNo blockInMode
+                let volatileTip = fromChainTip tip
+                let tipBlockNo = withOrigin 0 unBlockNo volatileTip
+                let immutableTip = BlockNo (tipBlockNo - securityParam)
+
+                putStrLn $
+                  "Roll forward to "
+                    ++ show (bimSlotNo blockInMode)
+                    ++ ", Current "
+                    ++ show blockNo
+                    ++ ", Tip "
+                    ++ show volatileTip
+                putMVar nextChainSyncEvent (RollForward blockInMode tip)
+
+                when (blockNo > immutableTip) do
+                  let pauseInSeconds = 200
+                  liftIO $
+                    putStrLn $
+                      "Reached immutable tip ("
+                        ++ show immutableTip
+                        ++ ") pausing for "
+                        ++ show pauseInSeconds
+                        ++ " seconds..."
+                  liftIO $ threadDelay (pauseInSeconds * 1_000_000)
+
+                sendRequestNext
+          , recvMsgRollBackward = \chainPoint tip ->
+              C.ChainSyncClient do
+                putMVar nextChainSyncEvent (RollBackward chainPoint tip)
+                sendRequestNext
+          }
+
   -- Let's rethrow exceptions from the client thread unwrapped, so that the
   -- callback does not have to know anything about async
   handle (\(ExceptionInLinkedThread _async (SomeException e)) -> throw e) $
@@ -115,8 +115,11 @@ subscribeToChainSyncEvents socketPath networkId points callback = do
   bimBlockNo (C.BlockInMode _era (C.Block (C.BlockHeader _ _ blockNo) _)) =
     blockNo
 
+  bimSlotNo :: C.BlockInMode -> C.SlotNo
+  bimSlotNo (C.BlockInMode _era (C.Block (C.BlockHeader slot _ _) _)) = slot
+
   fromChainTip :: C.ChainTip -> WithOrigin C.BlockNo
-  fromChainTip ct = case ct of
+  fromChainTip tip = case tip of
     C.ChainTipAtGenesis -> Origin
     C.ChainTip _ _ bno -> At bno
 
@@ -132,3 +135,11 @@ data ChainSyncEventException = NoIntersectionFound
 data RollbackException = RollbackLocationNotFound C.ChainPoint C.ChainTip
   deriving stock (Show)
   deriving anyclass (Exception)
+
+{- | The security parameter is a non-updatable one:
+After how many blocks is the blockchain considered to be final,
+and thus can no longer be rolled back
+(i.e. what is the maximum allowable length of any chain fork).
+-}
+securityParam :: Word64
+securityParam = 2160

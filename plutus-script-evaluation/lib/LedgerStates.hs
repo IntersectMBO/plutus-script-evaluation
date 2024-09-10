@@ -28,7 +28,6 @@ makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
     RollForward block@(C.BlockInMode _era (C.Block header _)) _chainTip -> do
       let (C.BlockHeader slot hash _blockNo) = header
       let point = C.ChainPoint slot hash
-      putStrLn $ "Roll forward to " <> Render.chainPointSlot point
       indexerState@IndexerState{..} <- readIORef ref
       (newLedgerState, ledgerEvents) <-
         C.applyBlock env lastLedgerState C.FullValidation block
