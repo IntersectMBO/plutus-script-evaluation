@@ -1,5 +1,6 @@
 module LedgerEvents where
 
+import Cardano.Api.Ledger (StrictMaybe (..), strictMaybeToMaybe)
 import Cardano.Api.Shelley (
   ChainPoint,
   LedgerEvent (FailedPlutusScript, SuccessfulPlutusScript),
@@ -26,9 +27,11 @@ import Cardano.Ledger.Plutus (
   transExUnits,
  )
 import Control.Applicative (Alternative ((<|>)))
+import Control.DeepSeq (force)
 import Data.DList (DList)
 import Data.DList qualified as DList
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.Int (Int64)
 import Data.List.NonEmpty qualified as NE
 import Data.String.Interpolate (__i)
 import Data.Word (Word64)
@@ -58,8 +61,8 @@ import PlutusLedgerApi.Test.EvaluationEvent (
 import Types (Checkpoint (Checkpoint))
 
 data EventHandlerState = EventHandlerState
-  { costParamsV1 :: Maybe [Integer]
-  , costParamsV2 :: Maybe [Integer]
+  { costParamsV1 :: !(StrictMaybe [Int64])
+  , costParamsV2 :: !(StrictMaybe [Int64])
   , scriptEvents :: DList ScriptEvaluationEvent
   , numScriptEvents :: Int
   }
@@ -73,16 +76,15 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
   ref <-
     newIORef
       EventHandlerState
-        { costParamsV1 = Nothing
-        , costParamsV2 = Nothing
+        { costParamsV1 = SNothing
+        , costParamsV2 = SNothing
         , scriptEvents = DList.empty
         , numScriptEvents = 0
         }
   pure \(chainPoint, ledgerState, ledgerEvents) -> do
-    let (newScriptEvents, newV1CostParams, newV2CostParams) =
-          indexLedgerEvents ledgerEvents
+    let MkPlutusEvents{..} = indexLedgerEvents ledgerEvents
     state@EventHandlerState{..} <- readIORef ref
-    let numNewEvents = length newScriptEvents
+    let numNewEvents = length peScriptEvaluationEvents
     putStrLn
       [__i|
       Total script events: #{numScriptEvents + numNewEvents} (+#{numNewEvents})
@@ -91,7 +93,7 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
       then do
         let (eventsToWrite, eventsToCarry) =
               splitAt eventsPerFile $
-                DList.toList (scriptEvents <> DList.fromList newScriptEvents)
+                DList.toList (scriptEvents <> peScriptEvaluationEvents)
         putStrLn "Writing ledger state checkpoint... "
         FileStorage.saveLedgerState
           checkpointsDir
@@ -103,16 +105,16 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
           eventsDir
           chainPoint
           ScriptEvaluationEvents
-            { eventsCostParamsV1 = (fromIntegral <$>) <$> costParamsV1
-            , eventsCostParamsV2 = (fromIntegral <$>) <$> costParamsV2
+            { eventsCostParamsV1 = strictMaybeToMaybe costParamsV1
+            , eventsCostParamsV2 = strictMaybeToMaybe costParamsV2
             , eventsEvents = NE.fromList eventsToWrite
             }
         putStrLn "Done."
         writeIORef
           ref
           state
-            { costParamsV1 = costParamsV1 <|> newV1CostParams
-            , costParamsV2 = costParamsV2 <|> newV2CostParams
+            { costParamsV1 = costParamsV1 <|> peCostParamsV1
+            , costParamsV2 = costParamsV2 <|> peCostParamsV2
             , scriptEvents = DList.fromList eventsToCarry
             , numScriptEvents = numScriptEvents + numNewEvents - eventsPerFile
             }
@@ -120,59 +122,107 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
         writeIORef
           ref
           state
-            { costParamsV1 = costParamsV1 <|> newV1CostParams
-            , costParamsV2 = costParamsV2 <|> newV2CostParams
-            , scriptEvents = scriptEvents <> DList.fromList newScriptEvents
+            { costParamsV1 = costParamsV1 <|> peCostParamsV1
+            , costParamsV2 = costParamsV2 <|> peCostParamsV2
+            , scriptEvents = scriptEvents <> peScriptEvaluationEvents
             , numScriptEvents = numScriptEvents + numNewEvents
             }
 
-indexLedgerEvents
-  :: [LedgerEvent]
-  -> ([ScriptEvaluationEvent], Maybe [Integer], Maybe [Integer])
-indexLedgerEvents = foldr alg ([], Nothing, Nothing)
- where
-  alg
-    :: LedgerEvent
-    -> ([ScriptEvaluationEvent], Maybe [Integer], Maybe [Integer])
-    -> ([ScriptEvaluationEvent], Maybe [Integer], Maybe [Integer])
-  alg ledgerEvent acc = case ledgerEvent of
-    SuccessfulPlutusScript ds -> foldr (alg' ScriptEvaluationSuccess) acc ds
-    FailedPlutusScript ds -> foldr (alg' ScriptEvaluationFailure) acc ds
-    _ -> acc
+data PlutusEvents = MkPlutusEvents
+  { peCostParamsV1 :: !(StrictMaybe [Int64])
+  , peCostParamsV2 :: !(StrictMaybe [Int64])
+  , peCostParamsV3 :: StrictMaybe [Int64] -- TODO: make strict once we have V3
+  , peScriptEvaluationEvents :: DList ScriptEvaluationEvent
+  }
 
-  alg'
+emptyPlutusEvents :: PlutusEvents
+emptyPlutusEvents =
+  MkPlutusEvents
+    { peCostParamsV1 = mempty
+    , peCostParamsV2 = mempty
+    , peCostParamsV3 = mempty
+    , peScriptEvaluationEvents = mempty
+    }
+
+indexLedgerEvents :: [LedgerEvent] -> PlutusEvents
+indexLedgerEvents = foldr indexLedgerEvent emptyPlutusEvents
+ where
+  indexLedgerEvent :: LedgerEvent -> PlutusEvents -> PlutusEvents
+  indexLedgerEvent ledgerEvent !plutusEvents =
+    case ledgerEvent of
+      SuccessfulPlutusScript plutusEventsWithCtx ->
+        foldr
+          (indexPlutusEvent ScriptEvaluationSuccess)
+          plutusEvents
+          plutusEventsWithCtx
+      FailedPlutusScript plutusEventsWithCtx ->
+        foldr
+          (indexPlutusEvent ScriptEvaluationFailure)
+          plutusEvents
+          plutusEventsWithCtx
+      _ -> plutusEvents
+
+  indexPlutusEvent
     :: ScriptEvaluationResult
     -> PlutusWithContext StandardCrypto
-    -> ([ScriptEvaluationEvent], Maybe [Integer], Maybe [Integer])
-    -> ([ScriptEvaluationEvent], Maybe [Integer], Maybe [Integer])
-  alg'
+    -> PlutusEvents
+    -> PlutusEvents
+  indexPlutusEvent
     evaluationResult
-    PlutusWithContext{pwcArgs = args :: PlutusArgs l, ..}
-    (scriptEvents, v1, v2) =
-      let plutusLedgerLanguage :: PlutusLedgerLanguage =
-            case isLanguage @l of
-              SPlutusV1 -> PlutusV1
-              SPlutusV2 -> PlutusV2
-              SPlutusV3 -> PlutusV3
-          evaluationData =
-            ScriptEvaluationData
-              (MajorProtocolVersion (getVersion pwcProtocolVersion))
-              (transExUnits pwcExUnits)
-              ( either
-                  (unPlutusBinary . plutusBinary)
-                  (unPlutusBinary . plutusBinary . plutusFromRunnable)
-                  pwcScript
-              )
-              ( case isLanguage @l of
-                  SPlutusV1 -> legacyPlutusArgsToData (unPlutusV1Args args)
-                  SPlutusV2 -> legacyPlutusArgsToData (unPlutusV2Args args)
-                  SPlutusV3 -> []
-              )
-       in ( PlutusEvent plutusLedgerLanguage evaluationData evaluationResult : scriptEvents
-          , v1 <|> Just [fromIntegral param | param <- getCostModelParams pwcCostModel]
-          , v2
-          )
+    PlutusWithContext
+      { pwcArgs = args :: PlutusArgs l
+      , pwcCostModel
+      , pwcScript
+      , pwcProtocolVersion
+      , pwcExUnits
+      }
+    events@MkPlutusEvents{..} =
+      case plutusLedgerLanguage of
+        PlutusV1 ->
+          events
+            { peScriptEvaluationEvents = peScriptEvaluationEvents'
+            , peCostParamsV1 = force (peCostParamsV1 <|> peCostModelParams)
+            }
+        PlutusV2 ->
+          events
+            { peScriptEvaluationEvents = peScriptEvaluationEvents'
+            , peCostParamsV2 = force (peCostParamsV2 <|> peCostModelParams)
+            }
+        PlutusV3 ->
+          events
+            { peScriptEvaluationEvents = peScriptEvaluationEvents'
+            , peCostParamsV3 = force (peCostParamsV3 <|> peCostModelParams)
+            }
      where
+      plutusLedgerLanguage :: PlutusLedgerLanguage =
+        case isLanguage @l of
+          SPlutusV1 -> PlutusV1
+          SPlutusV2 -> PlutusV2
+          SPlutusV3 -> PlutusV3
+
+      peCostModelParams :: StrictMaybe [Int64] =
+        SJust (getCostModelParams pwcCostModel)
+
+      peScriptEvaluationEvents' :: DList ScriptEvaluationEvent =
+        DList.cons
+          (PlutusEvent plutusLedgerLanguage evaluationData evaluationResult)
+          peScriptEvaluationEvents
+
+      evaluationData :: ScriptEvaluationData =
+        ScriptEvaluationData
+          (MajorProtocolVersion (getVersion pwcProtocolVersion))
+          (transExUnits pwcExUnits)
+          ( either
+              (unPlutusBinary . plutusBinary)
+              (unPlutusBinary . plutusBinary . plutusFromRunnable)
+              pwcScript
+          )
+          ( case isLanguage @l of
+              SPlutusV1 -> legacyPlutusArgsToData (unPlutusV1Args args)
+              SPlutusV2 -> legacyPlutusArgsToData (unPlutusV2Args args)
+              SPlutusV3 -> []
+          )
+
       legacyPlutusArgsToData
         :: (ToData (PlutusScriptContext l))
         => LegacyPlutusArgs l
