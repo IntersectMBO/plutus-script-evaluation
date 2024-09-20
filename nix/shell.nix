@@ -25,7 +25,7 @@ cabalProject: {
           --mainnet \
           --socket-path "$CARDANO_NODE_SOCKET_PATH" \
           --config "$CARDANO_NODE_CONFIG_PATH" \
-          --events-per-file 10000 \
+          --events-per-file 5000 \
           --event-dir dumps/events \
           --checkpoint-dir dumps/checkpoints \
       '';
