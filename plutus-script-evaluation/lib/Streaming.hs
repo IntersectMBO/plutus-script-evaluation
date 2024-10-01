@@ -6,11 +6,22 @@ module Streaming (
 ) where
 
 import Cardano.Api (SocketPath)
-import Cardano.Api.ChainSync.Client
+import Cardano.Api.ChainSync.Client (
+  ClientStIdle (SendMsgFindIntersect, SendMsgRequestNext),
+  ClientStIntersect (
+    ClientStIntersect,
+    recvMsgIntersectFound,
+    recvMsgIntersectNotFound
+  ),
+  ClientStNext (
+    ClientStNext,
+    recvMsgRollBackward,
+    recvMsgRollForward
+  ),
+ )
 import Cardano.Api.Shelley qualified as C
 import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.Slot (WithOrigin (At, Origin), withOrigin)
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (ExceptionInLinkedThread (..), link, withAsync)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Exception (Exception, SomeException (..), handle, throw)
@@ -18,6 +29,7 @@ import Control.Monad (forever, when)
 import Control.Monad.IO.Class (liftIO)
 import GHC.Generics (Generic)
 import GHC.Word (Word64)
+import System.Exit (exitSuccess)
 
 {- | `subscribeToChainSyncEvents` uses the chain-sync mini-protocol to
 connect to a locally running node and fetch blocks from the given
@@ -83,16 +95,12 @@ subscribeToChainSyncEvents socketPath networkId points callback = do
                     ++ show volatileTip
                 putMVar nextChainSyncEvent (RollForward blockInMode tip)
 
-                when (blockNo > immutableTip) do
-                  let pauseInSeconds = 200
-                  liftIO $
-                    putStrLn $
-                      "Reached immutable tip ("
-                        ++ show immutableTip
-                        ++ ") pausing for "
-                        ++ show pauseInSeconds
-                        ++ " seconds..."
-                  liftIO $ threadDelay (pauseInSeconds * 1_000_000)
+                when (blockNo > immutableTip) $ liftIO do
+                  putStrLn $
+                    "Reached immutable tip ("
+                      ++ show immutableTip
+                      ++ "), exiting. "
+                  exitSuccess
 
                 sendRequestNext
           , recvMsgRollBackward = \chainPoint tip ->

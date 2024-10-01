@@ -6,6 +6,7 @@ module Types (
   StreamerState (..),
   ScriptM,
   Block,
+  OnImmutableTip (..),
 )
 where
 
@@ -72,3 +73,6 @@ data StreamerState = StreamerState
 type ScriptM = StateT StreamerState IO
 
 type Block = Cardano.BlockInMode
+
+data OnImmutableTip = OnImmutableTipExit | OnImmutableTipPause
+  deriving (Eq, Show)
