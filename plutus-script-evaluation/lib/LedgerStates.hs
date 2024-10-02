@@ -2,10 +2,11 @@ module LedgerStates where
 
 import Cardano.Api.Shelley (FileDirection (In), NodeConfigFile, docToString)
 import Cardano.Api.Shelley qualified as C
-import Control.Exception (throw)
+import Control.Exception (throwIO)
 import Control.Monad.Trans.Except (runExceptT)
 import Data.Function ((&))
 import Data.IORef (newIORef, readIORef, writeIORef)
+import FileStorage (Order (Asc))
 import FileStorage qualified
 import Path (Abs, Dir, Path)
 import Render qualified
@@ -31,7 +32,7 @@ makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
       indexerState@IndexerState{..} <- readIORef ref
       (newLedgerState, ledgerEvents) <-
         C.applyBlock env lastLedgerState C.FullValidation block
-          & either throw pure
+          & either throwIO pure
       writeIORef ref indexerState{lastLedgerState = newLedgerState}
       callback (point, newLedgerState, ledgerEvents)
     RollBackward point _chainTip
@@ -49,7 +50,7 @@ lastCheckpoint optsConfigPath checkpointsDir = do
   (env, ledgerStateAtGenesis) <-
     runExceptT (C.initialLedgerState optsConfigPath)
       >>= either (fail . docToString . C.prettyError) pure
-  checkpoints <- FileStorage.listFiles checkpointsDir
+  checkpoints <- FileStorage.listFilesSorted Asc checkpointsDir
   (env,) <$> case checkpoints of
     [] -> do
       putStrLn "No checkpoint found, starting from genesis"

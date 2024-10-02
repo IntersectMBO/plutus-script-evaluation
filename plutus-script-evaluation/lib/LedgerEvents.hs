@@ -94,10 +94,13 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
         let (eventsToWrite, eventsToCarry) =
               splitAt eventsPerFile $
                 DList.toList (scriptEvents <> peScriptEvaluationEvents)
-        putStrLn "Writing ledger state checkpoint... "
+        putStrLn "Writing ledger state ... "
         FileStorage.saveLedgerState
           checkpointsDir
           (Checkpoint chainPoint ledgerState)
+        putStrLn "Done."
+        putStrLn "Cleaning up old ledger states..."
+        FileStorage.cleanupLedgerStates checkpointsDir
         putStrLn "Done."
         putStrLn $
           "Writing " <> show (length eventsToWrite) <> " script events..."
