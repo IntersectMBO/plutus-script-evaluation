@@ -25,6 +25,7 @@ import Cardano.Ledger.Plutus (
   pwcProtocolVersion,
   pwcScript,
   transExUnits,
+  unPlutusV3Args,
  )
 import Control.Applicative (Alternative ((<|>)))
 import Control.DeepSeq (force)
@@ -58,6 +59,7 @@ import PlutusLedgerApi.Test.EvaluationEvent (
     ScriptEvaluationSuccess
   ),
  )
+import PlutusLedgerApi.V3 (ScriptContext)
 import Types (Checkpoint (Checkpoint))
 
 data EventHandlerState = EventHandlerState
@@ -223,7 +225,7 @@ indexLedgerEvents = foldr indexLedgerEvent emptyPlutusEvents
           ( case isLanguage @l of
               SPlutusV1 -> legacyPlutusArgsToData (unPlutusV1Args args)
               SPlutusV2 -> legacyPlutusArgsToData (unPlutusV2Args args)
-              SPlutusV3 -> []
+              SPlutusV3 -> [toData (unPlutusV3Args args)]
           )
 
       legacyPlutusArgsToData
