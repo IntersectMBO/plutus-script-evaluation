@@ -134,7 +134,7 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
 data PlutusEvents = MkPlutusEvents
   { peCostParamsV1 :: !(StrictMaybe [Int64])
   , peCostParamsV2 :: !(StrictMaybe [Int64])
-  , peCostParamsV3 :: StrictMaybe [Int64] -- TODO: make strict once we have V3
+  , peCostParamsV3 :: !(StrictMaybe [Int64])
   , peScriptEvaluationEvents :: DList ScriptEvaluationEvent
   }
 

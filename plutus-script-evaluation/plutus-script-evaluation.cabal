@@ -55,7 +55,7 @@ library
   build-depends:
     , async
     , base16-bytestring
-    , cardano-api                                  ^>=9.2.0.0
+    , cardano-api                                  ^>=9.3.0.0
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
@@ -82,7 +82,7 @@ executable dump-script-events
     Options
 
   build-depends:
-    , cardano-api               ^>=9.2.0.0
+    , cardano-api               ^>=9.3.0.0
     , optparse-applicative
     , path
     , path-io
@@ -99,7 +99,7 @@ executable aggregate-script-events
     Options
 
   build-depends:
-    , cardano-api                                  ^>=9.2.0.0
+    , cardano-api                                  ^>=9.3.0.0
     , optparse-applicative
     , path
     , path-io

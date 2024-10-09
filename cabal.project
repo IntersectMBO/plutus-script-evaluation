@@ -32,3 +32,12 @@ test-show-details: direct
 packages:
   plutus-script-evaluation
 
+-- This commit is not yet released;
+-- Remove SRP once this its released. 
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/cardano-api
+  tag: dde04968fd5c43ae27a8cb79adc3971820c9a8b4
+  --sha256: sha256-MAr/+hiUnxfIibuZS/bSSkDAAFUjGr4o9R911Kbk2RM=
+  subdir: cardano-api
+
