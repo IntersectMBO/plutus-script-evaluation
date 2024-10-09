@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+CAUTION: Do not modify this file unless you know what you are doing.
+ Unexpected results may occur if the code is changed deliberately.
+-->
+<dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="4"
+	 last-position="0,0" last-zoom="1" scene-rect="0,0,1623,1076.8"
+	 default-schema="public" default-owner="postgres"
+	 layers="Default layer"
+	 active-layers="0"
+	 layer-name-colors="#000000"
+	 layer-rect-colors="#b4b4b4"
+	 show-layer-names="false" show-layer-rects="false">
+<role name="admin"
+ createrole="true"
+ login="true">
+</role>
+
+<database name="mainnet_plutus_events" is-template="false" allow-conns="true">
+</database>
+
+<schema name="public" layers="0" fill-color="#e1e1e1" name-color="#000000" sql-disabled="true">
+</schema>
+
+<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="13" z-value="0">
+	<schema name="public"/>
+	<role name="admin"/>
+	<position x="1040" y="40"/>
+	<column name="slot" not-null="true">
+		<type name="bigint" length="0"/>
+		<comment> <![CDATA[Absolute Slot Number]]> </comment>
+	</column>
+	<column name="block" not-null="true">
+		<type name="bigint" length="0"/>
+		<comment> <![CDATA[Block Height]]> </comment>
+	</column>
+	<column name="evaluated_successfully" not-null="true">
+		<type name="bool" length="0"/>
+	</column>
+	<column name="exec_budget_cpu" not-null="true">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="exec_budget_mem" not-null="true">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="serialised_script" not-null="true">
+		<type name="bytea" length="0"/>
+	</column>
+	<column name="datum">
+		<type name="bytea" length="0"/>
+		<comment> <![CDATA[CBOR-encoded Datum]]> </comment>
+	</column>
+	<column name="redeemer">
+		<type name="bytea" length="0"/>
+		<comment> <![CDATA[CBOR-encoded redeemer]]> </comment>
+	</column>
+	<column name="script_context" not-null="true">
+		<type name="bytea" length="0"/>
+		<comment> <![CDATA[CBOR-encoded ScriptContext]]> </comment>
+	</column>
+
+	<customidxs object-type="column">
+		<object name="ledger_language" index="9"/>
+		<object name="major_protocol_version" index="10"/>
+	</customidxs>
+	<customidxs object-type="constraint">
+		<object name="cost_model_params_fk" index="0"/>
+	</customidxs></table>
+
+<table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="3" z-value="0">
+	<schema name="public"/>
+	<role name="admin"/>
+	<position x="60" y="60"/>
+	<column name="ledger_language" not-null="true">
+		<type name="smallint" length="0"/>
+	</column>
+	<column name="major_protocol_version" not-null="true">
+		<type name="smallint" length="0"/>
+	</column>
+	<column name="param_values" not-null="true">
+		<type name="bigint" length="0" dimension="1"/>
+	</column>
+	<constraint name="cost_model_params_pk" type="pk-constr" table="public.cost_model_params">
+		<columns names="ledger_language,major_protocol_version" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<relationship name="cost_model_params_has_many_script_evaluation_events" type="rel1n" layers="0"
+	 src-col-pattern="{sc}"
+	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
+	 src-fk-pattern="{st}_fk"
+	 custom-color="#ae6593"
+	 src-table="public.cost_model_params"
+	 dst-table="public.script_evaluation_events"
+	 src-required="true" dst-required="false">
+	<label ref-type="name-label">
+		<position x="1.4424" y="-31.8621"/>
+	</label>
+</relationship>
+
+</dbmodel>
