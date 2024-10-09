@@ -3,6 +3,7 @@ module Aggregate where
 import Cardano.Api (SlotNo)
 import Data.Foldable (foldlM)
 import Data.List (foldl')
+import FileStorage (Order (..))
 import FileStorage qualified
 import Numeric.Natural (Natural)
 import Options (Options (Options, optsEventsDir))
@@ -15,14 +16,11 @@ import PlutusLedgerApi.Test.EvaluationEvent (
   ScriptEvaluationResult (..),
  )
 
-aggregateScriptEvents :: Options -> IO ()
+aggregateScriptEvents :: Options -> IO Metrics
 aggregateScriptEvents Options{..} = do
   eventsDir <- makeAbsolute optsEventsDir
-  FileStorage.listFiles eventsDir >>= \case
-    [] -> putStrLn "No events to aggregate"
-    files -> do
-      metrics <- foldlM aggregateFile mempty files
-      print metrics
+  FileStorage.listFilesSorted Asc eventsDir
+    >>= foldlM aggregateFile mempty
 
 aggregateFile :: Metrics -> (SlotNo, Path Abs File) -> IO Metrics
 aggregateFile !metrics (_slotNo, path) = do

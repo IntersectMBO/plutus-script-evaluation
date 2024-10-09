@@ -15,4 +15,5 @@ main :: IO ()
 main = withUtf8 do
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout LineBuffering
-  aggregateScriptEvents =<< execParser parserInfo
+  metrics <- aggregateScriptEvents =<< execParser parserInfo
+  print metrics
