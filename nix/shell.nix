@@ -31,6 +31,19 @@ cabalProject: {
       '';
     };
 
+    load = {
+      description = "Load Plutus Script events into a database";
+      group = "general";
+      exec = ''
+        cabal run load-script-events -- \
+          --mainnet \
+          --socket-path "$CARDANO_NODE_SOCKET_PATH" \
+          --config "$CARDANO_NODE_CONFIG_PATH" \
+          --checkpoint-dir dumps/checkpoints \
+          --database-conn-str "$DB_CONN_STRING" 
+      '';
+    };
+
     aggregate = {
       description = "Aggregate Plutus Script events from mainnet";
       group = "general";

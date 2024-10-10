@@ -1,6 +1,6 @@
 module Dump (dumpScriptEvents) where
 
-import LedgerEvents (makeEventIndexer)
+import LedgerEvents.FileWriter qualified as FileWriter
 import LedgerStates (
   IndexerState (IndexerState),
   lastCheckpoint,
@@ -27,4 +27,4 @@ dumpScriptEvents O.Options{..} = do
   ensureDir checkpointsDir
   subscribeToChainSyncEvents optsSocketPath optsNetworkId [chainPoint]
     =<< makeLedgerStateEventsIndexer (IndexerState env ledgerState) chainPoint
-    =<< makeEventIndexer checkpointsDir eventsDir optsEventsPerFile
+    =<< FileWriter.makeEventIndexer checkpointsDir eventsDir optsEventsPerFile

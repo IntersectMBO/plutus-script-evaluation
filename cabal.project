@@ -32,6 +32,9 @@ test-show-details: direct
 packages:
   plutus-script-evaluation
 
+package postgresql-libpq
+  flags: +use-pkg-config
+
 -- This commit is not yet released;
 -- Remove SRP once this its released. 
 source-repository-package
