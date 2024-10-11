@@ -14,7 +14,10 @@
 cabalProject: {
   name = "plutus-script-evaluation";
 
-  packages = [ pkgs.figlet ];
+  packages = [
+    pkgs.figlet
+    pkgs.adrs
+  ];
 
   scripts = {
     dump = {
