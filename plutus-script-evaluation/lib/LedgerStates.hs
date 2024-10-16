@@ -1,6 +1,6 @@
 module LedgerStates where
 
-import Cardano.Api.Shelley (FileDirection (In), NodeConfigFile, docToString)
+import Cardano.Api.Shelley (BlockNo, FileDirection (In), NodeConfigFile, docToString)
 import Cardano.Api.Shelley qualified as C
 import Control.Exception (throwIO)
 import Control.Monad.Trans.Except (runExceptT)
@@ -21,20 +21,20 @@ data IndexerState = IndexerState
 makeLedgerStateEventsIndexer
   :: IndexerState
   -> C.ChainPoint
-  -> ((C.ChainPoint, C.LedgerState, [C.LedgerEvent]) -> IO ())
+  -> ((BlockNo, Checkpoint, [C.LedgerEvent]) -> IO ())
   -> IO (ChainSyncEvent -> IO ())
 makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
   ref <- newIORef initialIndexerState
   pure \case
     RollForward block@(C.BlockInMode _era (C.Block header _)) _chainTip -> do
-      let (C.BlockHeader slot hash _blockNo) = header
+      let (C.BlockHeader slot hash blockNo) = header
       let point = C.ChainPoint slot hash
       indexerState@IndexerState{..} <- readIORef ref
       (newLedgerState, ledgerEvents) <-
         C.applyBlock env lastLedgerState C.FullValidation block
           & either throwIO pure
       writeIORef ref indexerState{lastLedgerState = newLedgerState}
-      callback (point, newLedgerState, ledgerEvents)
+      callback (blockNo, Checkpoint point newLedgerState, ledgerEvents)
     RollBackward point _chainTip
       | point == startedFrom ->
           putStrLn $ "Initial Rollback to: " <> Render.chainPointSlot point

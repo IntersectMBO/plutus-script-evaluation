@@ -1,10 +1,9 @@
-module LedgerEvents where
+module LedgerEvents.FileWriter where
 
 import Cardano.Api.Ledger (StrictMaybe (..), strictMaybeToMaybe)
 import Cardano.Api.Shelley (
-  ChainPoint,
+  BlockNo,
   LedgerEvent (FailedPlutusScript, SuccessfulPlutusScript),
-  LedgerState,
  )
 import Cardano.Ledger.Alonzo.Scripts (
   PlutusBinary (unPlutusBinary),
@@ -59,7 +58,6 @@ import PlutusLedgerApi.Test.EvaluationEvent (
     ScriptEvaluationSuccess
   ),
  )
-import PlutusLedgerApi.V3 (ScriptContext)
 import Types (Checkpoint (Checkpoint))
 
 data EventHandlerState = EventHandlerState
@@ -73,7 +71,7 @@ makeEventIndexer
   :: Path Abs Dir
   -> Path Abs Dir
   -> Word64 -- eventsPerFile
-  -> IO ((ChainPoint, LedgerState, [LedgerEvent]) -> IO ())
+  -> IO ((BlockNo, Checkpoint, [LedgerEvent]) -> IO ())
 makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
   ref <-
     newIORef
@@ -83,7 +81,7 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
         , scriptEvents = DList.empty
         , numScriptEvents = 0
         }
-  pure \(chainPoint, ledgerState, ledgerEvents) -> do
+  pure \(_, checkpoint@(Checkpoint chainPoint _ledgerState), ledgerEvents) -> do
     let MkPlutusEvents{..} = indexLedgerEvents ledgerEvents
     state@EventHandlerState{..} <- readIORef ref
     let numNewEvents = length peScriptEvaluationEvents
@@ -97,9 +95,7 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
               splitAt eventsPerFile $
                 DList.toList (scriptEvents <> peScriptEvaluationEvents)
         putStrLn "Writing ledger state ... "
-        FileStorage.saveLedgerState
-          checkpointsDir
-          (Checkpoint chainPoint ledgerState)
+        FileStorage.saveLedgerState checkpointsDir checkpoint
         putStrLn "Done."
         putStrLn "Cleaning up old ledger states..."
         FileStorage.cleanupLedgerStates checkpointsDir

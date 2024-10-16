@@ -17,10 +17,12 @@ common lang
     DerivingStrategies
     ExplicitForAll
     FlexibleContexts
+    FlexibleInstances
     GADTs
     GeneralizedNewtypeDeriving
     ImportQualifiedPost
     LambdaCase
+    MultiParamTypeClasses
     NamedFieldPuns
     NamedFieldPuns
     NumericUnderscores
@@ -29,8 +31,10 @@ common lang
     RecordWildCards
     ScopedTypeVariables
     StandaloneDeriving
+    TemplateHaskell
     TupleSections
     TypeApplications
+    TypeOperators
     ViewPatterns
 
   ghc-options:
@@ -45,8 +49,11 @@ library
   import:          lang, deps
   hs-source-dirs:  lib
   exposed-modules:
+    Database
+    Database.Orphans
     FileStorage
-    LedgerEvents
+    LedgerEvents.DbLoader
+    LedgerEvents.FileWriter
     LedgerStates
     Render
     Streaming
@@ -55,18 +62,22 @@ library
   build-depends:
     , async
     , base16-bytestring
+    , bytestring
     , cardano-api                                  ^>=9.3.0.0
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
     , deepseq
     , dlist
+    , opaleye
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , path
     , path-io
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
+    , postgresql-simple
+    , product-profunctors
     , serialise
     , string-interpolate                           ^>=0.3
     , text
@@ -87,6 +98,26 @@ executable dump-script-events
     , path
     , path-io
     , plutus-script-evaluation
+    , with-utf8
+
+executable load-script-events
+  import:         lang, deps
+  hs-source-dirs: load-script-events
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:
+    Load
+    Options
+
+  build-depends:
+    , bytestring
+    , cardano-api               ^>=9.3.0.0
+    , optparse-applicative
+    , path
+    , path-io
+    , plutus-script-evaluation
+    , postgresql-simple
+    , string-interpolate
     , with-utf8
 
 executable aggregate-script-events
