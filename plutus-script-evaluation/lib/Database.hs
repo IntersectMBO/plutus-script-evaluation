@@ -4,6 +4,7 @@ module Database where
 
 import Cardano.Slotting.Slot (SlotNo)
 import Data.ByteString (ByteString)
+import Data.Digest.Murmur64 (Hash64)
 import Data.Int (Int16, Int64)
 import Data.Profunctor.Product.Default (Default)
 import Data.Profunctor.Product.TH (makeAdaptorAndInstanceInferrable)
@@ -42,8 +43,9 @@ type DbTable f = Table f f
 --------------------------------------------------------------------------------
 -- cost_model_params -----------------------------------------------------------
 
-data CostModelValues' ledgerLang protoVer paramValues = MkCostModelValues
-  { cmLedgerLanguage :: ledgerLang
+data CostModelValues' hash64 ledgerLang protoVer paramValues = MkCostModelValues
+  { cmPk :: hash64
+  , cmLedgerLanguage :: ledgerLang
   , cmMajorProtocolVersion :: protoVer
   , cmParamValues :: paramValues
   }
@@ -51,12 +53,14 @@ data CostModelValues' ledgerLang protoVer paramValues = MkCostModelValues
 
 type CostModelValues =
   CostModelValues'
+    Hash64 -- pk
     PlutusLedgerLanguage -- ledger_language
     Int16 -- major_protocol_version
     [Int64] -- param_values
 
 type CostModelValuesFields =
   CostModelValues'
+    (Field SqlInt8) -- pk
     (Field SqlInt2) -- ledger_language
     (Field SqlInt2) -- major_protocol_version
     (Field (SqlArray SqlInt8)) -- param_values
@@ -68,8 +72,9 @@ costModelValues =
   table "cost_model_params" $
     pCostModelValues
       MkCostModelValues
-        { cmLedgerLanguage = tableField "ledger_language"
-        , cmMajorProtocolVersion = tableField "major_protocol_version"
+        { cmPk = tableField "pk"
+        , cmLedgerLanguage = tableField "ledger_language"
+        , cmMajorProtocolVersion = tableField "major_protocol_ver"
         , cmParamValues = tableField "param_values"
         }
 
@@ -94,7 +99,7 @@ insertCostModelValues conn hs =
 --------------------------------------------------------------------------------
 -- script_evaluation_events ----------------------------------------------------
 
-data EvaluationEvent' a b c d e f g h i j k = MkEvaluationEvent
+data EvaluationEvent' a b c d e f g h i j k l = MkEvaluationEvent
   { eeSlotNo :: a
   , eeBlockNo :: b
   , eeEvaluatedSuccessfully :: c
@@ -106,6 +111,7 @@ data EvaluationEvent' a b c d e f g h i j k = MkEvaluationEvent
   , eeScriptContext :: i
   , eeLedgerLanguage :: j
   , eeMajorProtocolVersion :: k
+  , eeCostModelParams :: l
   }
   deriving (Show, Eq)
 
@@ -122,6 +128,7 @@ type EvaluationEvent =
     ByteString -- script_context
     PlutusLedgerLanguage -- ledger_language
     Int16 -- major_protocol_version
+    Hash64 -- cost_model_params
 
 type EvaluationEventFields =
   EvaluationEvent'
@@ -136,6 +143,7 @@ type EvaluationEventFields =
     (Field SqlBytea) -- script_context
     (Field SqlInt2) -- ledger_language
     (Field SqlInt2) -- major_protocol_version
+    (Field SqlInt8) -- cost_model_params
 
 $(makeAdaptorAndInstanceInferrable "pEvaluationEvent" ''EvaluationEvent')
 
@@ -154,7 +162,8 @@ scriptEvaluationEvents =
         , eeRedeemer = tableField "redeemer"
         , eeScriptContext = tableField "script_context"
         , eeLedgerLanguage = tableField "ledger_language"
-        , eeMajorProtocolVersion = tableField "major_protocol_version"
+        , eeMajorProtocolVersion = tableField "major_protocol_ver"
+        , eeCostModelParams = tableField "cost_model_params"
         }
 
 selectScriptEvaluationEvents :: Select EvaluationEventFields

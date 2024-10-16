@@ -26,16 +26,20 @@ import Cardano.Ledger.Plutus (
 import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..))
 import Codec.Serialise (serialise)
 import Control.Monad (unless, when)
+import Data.Bits (shiftL, shiftR, xor)
 import Data.ByteString (ByteString, toStrict)
 import Data.ByteString.Short (fromShort)
+import Data.Digest.Murmur64 (Hash64, hash64, hash64Add)
 import Data.Int (Int16, Int64)
 import Data.Maybe (fromMaybe)
 import Data.String.Interpolate (i)
+import Data.Word (Word64)
 import Database (CostModelValues, EvaluationEvent)
 import Database qualified as DB
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as PostgreSQL
 import FileStorage qualified
+import GHC.Stack (HasCallStack)
 import Path (Abs, Dir, Path)
 import PlutusLedgerApi.Common (Data, PlutusLedgerLanguage (..), toData)
 import PlutusLedgerApi.V3 (
@@ -46,7 +50,8 @@ import PlutusLedgerApi.V3 (
 import Types (Checkpoint (..))
 
 makeEventIndexer
-  :: Path Abs Dir
+  :: (HasCallStack)
+  => Path Abs Dir
   -> PostgreSQL.Connection
   -> IO ((BlockNo, Checkpoint, [LedgerEvent]) -> IO ())
 makeEventIndexer checkpointDir conn = do
@@ -86,7 +91,12 @@ normaliseEventsWithCosts eventsWithCosts =
   , [costs | MkEventWithCosts{costs} <- eventsWithCosts]
   )
 
-indexLedgerEvents :: SlotNo -> BlockNo -> [LedgerEvent] -> [EventWithCosts]
+indexLedgerEvents
+  :: (HasCallStack)
+  => SlotNo
+  -> BlockNo
+  -> [LedgerEvent]
+  -> [EventWithCosts]
 indexLedgerEvents eeSlotNo eeBlockNo =
   foldr indexLedgerEvent []
  where
@@ -128,18 +138,26 @@ indexLedgerEvents eeSlotNo eeBlockNo =
           , eeScriptContext
           , eeLedgerLanguage
           , eeMajorProtocolVersion
+          , eeCostModelParams
           }
 
       costs :: CostModelValues =
         DB.MkCostModelValues
-          { cmLedgerLanguage = eeLedgerLanguage
+          { cmPk = eeCostModelParams
+          , cmLedgerLanguage = eeLedgerLanguage
           , cmMajorProtocolVersion = eeMajorProtocolVersion
-          , cmParamValues = getCostModelParams pwcCostModel
+          , cmParamValues
           }
 
       ExUnits
         (fromIntegral -> eeExecBudgetCpu :: Int64)
         (fromIntegral -> eeExecBudgetMem :: Int64) = pwcExUnits
+
+      eeCostModelParams :: Hash64 =
+        hashParamValues cmParamValues
+
+      cmParamValues :: [Int64] =
+        getCostModelParams pwcCostModel
 
       eeMajorProtocolVersion :: Int16 =
         getVersion pwcProtocolVersion
@@ -187,3 +205,11 @@ indexLedgerEvents eeSlotNo eeBlockNo =
       eeSerialisedScript :: ByteString =
         fromShort . unPlutusBinary . plutusBinary $
           either id plutusFromRunnable pwcScript
+
+hashParamValues :: (HasCallStack) => [Int64] -> Hash64
+hashParamValues = \case
+  [] -> error "hashParamValues: empty list"
+  (x : xs) -> hash64Add (int64ToWord64 x) (hashParamValues xs)
+ where
+  int64ToWord64 :: Int64 -> Word64
+  int64ToWord64 n = fromIntegral $ shiftL n 1 `xor` shiftR n 63

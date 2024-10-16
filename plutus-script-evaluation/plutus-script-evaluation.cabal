@@ -69,6 +69,7 @@ library
     , cardano-slotting                             ^>=0.2.0.0
     , deepseq
     , dlist
+    , murmur-hash                                  ^>=0.1.0.10
     , opaleye
     , ouroboros-consensus
     , ouroboros-consensus-cardano
