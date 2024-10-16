@@ -144,10 +144,18 @@ data RollbackException = RollbackLocationNotFound C.ChainPoint C.ChainTip
   deriving stock (Show)
   deriving anyclass (Exception)
 
-{- | The security parameter is a non-updatable one:
-After how many blocks is the blockchain considered to be final,
-and thus can no longer be rolled back
-(i.e. what is the maximum allowable length of any chain fork).
+{- |
+After how many blocks is the blockchain considered to be final, and thus can no
+longer be rolled back (i.e. what is the maximum allowable length of any chain
+fork).
+
+The ouroboros-consensus security parameter is a non-updatable one and has value
+of 2160. For the purposes of plutus script events evaluation this is too
+conservative: in fact, the biggest rollback recorded on the mainnet is 3 blocks.
+
+10 blocks seems to be a reasonable value for our purposes:
+- it is small enough to have fresh data for the evaluation.
+- its is big enough to minimize the risk of a rollback.
 -}
 securityParam :: Word64
-securityParam = 2160
+securityParam = 10
