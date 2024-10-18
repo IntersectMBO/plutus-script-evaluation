@@ -9,6 +9,8 @@ import Cardano.Api.Shelley (
   unBlockNo,
  )
 import Cardano.Ledger.BaseTypes (getVersion)
+import Cardano.Ledger.Binary (encCBOR)
+import Cardano.Ledger.Binary qualified as Binary
 import Cardano.Ledger.Plutus (
   ExUnits (..),
   LegacyPlutusArgs (..),
@@ -26,12 +28,18 @@ import Cardano.Ledger.Plutus (
 import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..))
 import Codec.Serialise (serialise)
 import Control.Monad (unless, when)
+import Data.Bits (shiftL, shiftR, xor)
 import Data.ByteString (ByteString, toStrict)
+import Data.ByteString.Builder (toLazyByteString)
 import Data.ByteString.Short (fromShort)
+import Data.Digest.Murmur64 (Hash64, hash64, hash64Add)
+import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.Int (Int16, Int64)
-import Data.Maybe (fromMaybe)
+import Data.List (nub)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.String.Interpolate (i)
-import Database (CostModelValues, EvaluationEvent)
+import Data.Word (Word64)
 import Database qualified as DB
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as PostgreSQL
@@ -60,37 +68,40 @@ makeEventIndexer checkpointDir conn = do
       FileStorage.cleanupLedgerStates checkpointDir
       putStrLn "Done."
 
-    let (evaluationEvents, costs) =
-          normaliseEventsWithCosts $
-            indexLedgerEvents slotNo blockNo ledgerEvents
+    let eventRecords = indexLedgerEvents slotNo blockNo ledgerEvents
+        scriptEvaluationRecords = nub $ eventRecords <&> event
+        costsRecords = nub $ eventRecords >>= maybeToList . costs
+        scriptRecords = nub $ eventRecords <&> script
 
     -- First insert the cost model parameter values
     -- such that script evaluation events can refer them with a FK.
-    numCosts <- Db.insertCostModelValues conn costs
+    numCosts <- Db.insertCostModelValues conn costsRecords
     unless (numCosts == 0) do
       putStrLn [i|Inserted #{numCosts} cost model parameter values.|]
 
-    numEvents <- Db.insertScriptEvaluationEvents conn evaluationEvents
+    numScripts <- Db.insertSerialisedScripts conn scriptRecords
+    unless (numScripts == 0) do
+      putStrLn [i|Inserted #{numScripts} serialised scripts.|]
+
+    numEvents <- Db.insertScriptEvaluationEvents conn scriptEvaluationRecords
     unless (numEvents == 0) do
       putStrLn [i|Inserted #{numEvents} script evaluation events.|]
 
-data EventWithCosts = MkEventWithCosts
-  { event :: EvaluationEvent
-  , costs :: CostModelValues
+data EventRecords = MkEventRecords
+  { event :: DB.EvaluationEventRecord
+  , costs :: Maybe DB.CostModelValuesRecord
+  , script :: DB.SerialisedScriptRecord
   }
 
-normaliseEventsWithCosts
-  :: [EventWithCosts] -> ([EvaluationEvent], [CostModelValues])
-normaliseEventsWithCosts eventsWithCosts =
-  ( [event | MkEventWithCosts{event} <- eventsWithCosts]
-  , [costs | MkEventWithCosts{costs} <- eventsWithCosts]
-  )
-
-indexLedgerEvents :: SlotNo -> BlockNo -> [LedgerEvent] -> [EventWithCosts]
+indexLedgerEvents
+  :: SlotNo
+  -> BlockNo
+  -> [LedgerEvent]
+  -> [EventRecords]
 indexLedgerEvents eeSlotNo eeBlockNo =
   foldr indexLedgerEvent []
  where
-  indexLedgerEvent :: LedgerEvent -> [EventWithCosts] -> [EventWithCosts]
+  indexLedgerEvent :: LedgerEvent -> [EventRecords] -> [EventRecords]
   indexLedgerEvent ledgerEvent events =
     case ledgerEvent of
       SuccessfulPlutusScript plutusEventsWithCtx ->
@@ -102,49 +113,65 @@ indexLedgerEvents eeSlotNo eeBlockNo =
   indexPlutusEvent
     :: Bool
     -> PlutusWithContext StandardCrypto
-    -> [EventWithCosts]
-    -> [EventWithCosts]
+    -> [EventRecords]
+    -> [EventRecords]
   indexPlutusEvent
     eeEvaluatedSuccessfully
     PlutusWithContext
       { pwcArgs = args :: PlutusArgs l
       , pwcCostModel
       , pwcScript
+      , pwcScriptHash
       , pwcProtocolVersion
       , pwcExUnits
       }
-    events = MkEventWithCosts{event, costs} : events
+    events = MkEventRecords{event, costs, script} : events
      where
-      event :: EvaluationEvent =
+      event :: DB.EvaluationEventRecord =
         Db.MkEvaluationEvent
           { eeSlotNo
           , eeBlockNo
           , eeEvaluatedSuccessfully
           , eeExecBudgetCpu
           , eeExecBudgetMem
-          , eeSerialisedScript
+          , eeScriptHash
           , eeDatum
           , eeRedeemer
           , eeScriptContext
-          , eeLedgerLanguage
-          , eeMajorProtocolVersion
+          , eeCostModelParams
           }
 
-      costs :: CostModelValues =
-        DB.MkCostModelValues
-          { cmLedgerLanguage = eeLedgerLanguage
-          , cmMajorProtocolVersion = eeMajorProtocolVersion
-          , cmParamValues = getCostModelParams pwcCostModel
+      costs :: Maybe DB.CostModelValuesRecord =
+        eeCostModelParams <&> \cmPk ->
+          DB.MkCostModelValues
+            { cmPk
+            , cmLedgerLanguage = ssLedgerLanguage
+            , cmMajorProtocolVersion = ssMajorProtocolVersion
+            , cmParamValues
+            }
+
+      script :: DB.SerialisedScriptRecord =
+        DB.MkSerialisedScriptRecord
+          { ssHash = eeScriptHash
+          , ssLedgerLanguage
+          , ssMajorProtocolVersion
+          , ssSerialised
           }
 
       ExUnits
         (fromIntegral -> eeExecBudgetCpu :: Int64)
         (fromIntegral -> eeExecBudgetMem :: Int64) = pwcExUnits
 
-      eeMajorProtocolVersion :: Int16 =
+      eeCostModelParams :: Maybe Hash64 =
+        hashParamValues cmParamValues
+
+      cmParamValues :: [Int64] =
+        getCostModelParams pwcCostModel
+
+      ssMajorProtocolVersion :: Int16 =
         getVersion pwcProtocolVersion
 
-      eeLedgerLanguage :: PlutusLedgerLanguage =
+      ssLedgerLanguage :: PlutusLedgerLanguage =
         case isLanguage @l of
           SPlutusV1 -> PlutusV1
           SPlutusV2 -> PlutusV2
@@ -184,6 +211,25 @@ indexLedgerEvents eeSlotNo eeBlockNo =
           SPlutusV3 ->
             Just (toData (scriptContextRedeemer (unPlutusV3Args args)))
 
-      eeSerialisedScript :: ByteString =
+      ssSerialised :: ByteString =
         fromShort . unPlutusBinary . plutusBinary $
           either id plutusFromRunnable pwcScript
+
+      eeScriptHash :: ByteString =
+        pwcScriptHash
+          & encCBOR
+          & Binary.toBuilder version
+          & toLazyByteString
+          & toStrict
+       where
+        version :: Binary.Version
+        version = toEnum (fromIntegral ssMajorProtocolVersion)
+
+hashParamValues :: [Int64] -> Maybe Hash64
+hashParamValues = \case
+  [] -> Nothing
+  [x] -> Just (hash64 (int64ToWord64 x))
+  (x : xs) -> hash64Add (int64ToWord64 x) <$> hashParamValues xs
+ where
+  int64ToWord64 :: Int64 -> Word64
+  int64ToWord64 n = fromIntegral $ shiftL n 1 `xor` shiftR n 63
