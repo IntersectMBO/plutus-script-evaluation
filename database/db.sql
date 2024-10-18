@@ -28,9 +28,7 @@ CREATE TABLE public.script_evaluation_events (
 	evaluated_successfully bool NOT NULL,
 	exec_budget_cpu bigint NOT NULL,
 	exec_budget_mem bigint NOT NULL,
-	ledger_language smallint NOT NULL,
-	major_protocol_ver smallint NOT NULL,
-	serialised_script bytea NOT NULL,
+	script_hash bytea NOT NULL,
 	datum bytea,
 	redeemer bytea,
 	script_context bytea NOT NULL,
@@ -75,10 +73,30 @@ USING btree
 );
 -- ddl-end --
 
+-- object: public.serialised_scripts | type: TABLE --
+-- DROP TABLE IF EXISTS public.serialised_scripts CASCADE;
+CREATE TABLE public.serialised_scripts (
+	hash bytea NOT NULL,
+	ledger_language smallint NOT NULL,
+	major_protocol_ver smallint NOT NULL,
+	serialised bytea NOT NULL,
+	CONSTRAINT serialised_scripts_pk PRIMARY KEY (hash)
+);
+-- ddl-end --
+ALTER TABLE public.serialised_scripts OWNER TO postgres;
+-- ddl-end --
+
 -- object: cost_model_params_fk | type: CONSTRAINT --
 -- ALTER TABLE public.script_evaluation_events DROP CONSTRAINT IF EXISTS cost_model_params_fk CASCADE;
 ALTER TABLE public.script_evaluation_events ADD CONSTRAINT cost_model_params_fk FOREIGN KEY (cost_model_params)
 REFERENCES public.cost_model_params (pk) MATCH SIMPLE
+ON DELETE RESTRICT ON UPDATE RESTRICT;
+-- ddl-end --
+
+-- object: serialised_scripts_fk | type: CONSTRAINT --
+-- ALTER TABLE public.script_evaluation_events DROP CONSTRAINT IF EXISTS serialised_scripts_fk CASCADE;
+ALTER TABLE public.script_evaluation_events ADD CONSTRAINT serialised_scripts_fk FOREIGN KEY (script_hash)
+REFERENCES public.serialised_scripts (hash) MATCH FULL
 ON DELETE RESTRICT ON UPDATE RESTRICT;
 -- ddl-end --
 

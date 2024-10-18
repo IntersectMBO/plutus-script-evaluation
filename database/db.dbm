@@ -4,7 +4,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
 <dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="4"
-	 last-position="0,0" last-zoom="1" scene-rect="0,0,1623,1076.8"
+	 last-position="0,0" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -22,10 +22,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <schema name="public" layers="0" fill-color="#e1e1e1" name-color="#000000" sql-disabled="true">
 </schema>
 
-<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="14" z-value="0">
+<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="12" z-value="0">
 	<schema name="public"/>
 	<role name="admin"/>
-	<position x="960" y="40"/>
+	<position x="940" y="60"/>
 	<column name="slot" not-null="true">
 		<type name="bigint" length="0"/>
 		<comment> <![CDATA[Absolute Slot Number]]> </comment>
@@ -43,13 +43,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="exec_budget_mem" not-null="true">
 		<type name="bigint" length="0"/>
 	</column>
-	<column name="ledger_language" not-null="true">
-		<type name="smallint" length="0"/>
-	</column>
-	<column name="major_protocol_ver" not-null="true">
-		<type name="smallint" length="0"/>
-	</column>
-	<column name="serialised_script" not-null="true">
+	<column name="script_hash" not-null="true">
 		<type name="bytea" length="0"/>
 	</column>
 	<column name="datum">
@@ -72,7 +66,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="public"/>
 	<role name="admin"/>
-	<position x="320" y="120"/>
+	<position x="320" y="40"/>
 	<column name="pk" not-null="true">
 		<type name="bigint" length="0"/>
 		<comment> <![CDATA[A synthetic PK obtained by hashing (ledger_language, major_protocol_version, param_values) using a fast non-cryptographically strong hashing algorithm like XXH3]]> </comment>
@@ -96,15 +90,47 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		</idxelement>
 </index>
 
+<table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+	<schema name="public"/>
+	<role name="postgres"/>
+	<position x="320" y="280"/>
+	<column name="hash" not-null="true">
+		<type name="bytea" length="0"/>
+	</column>
+	<column name="ledger_language" not-null="true">
+		<type name="smallint" length="0"/>
+	</column>
+	<column name="major_protocol_ver" not-null="true">
+		<type name="smallint" length="0"/>
+	</column>
+	<column name="serialised" not-null="true">
+		<type name="bytea" length="0"/>
+	</column>
+	<constraint name="serialised_scripts_pk" type="pk-constr" table="public.serialised_scripts">
+		<columns names="hash" ref-type="src-columns"/>
+	</constraint>
+</table>
+
 <constraint name="cost_model_params_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="RESTRICT" del-action="RESTRICT" ref-table="public.cost_model_params" table="public.script_evaluation_events">
 	<columns names="cost_model_params" ref-type="src-columns"/>
 	<columns names="pk" ref-type="dst-columns"/>
 </constraint>
 
+<constraint name="serialised_scripts_fk" type="fk-constr" comparison-type="MATCH FULL"
+	 upd-action="RESTRICT" del-action="RESTRICT" ref-table="public.serialised_scripts" table="public.script_evaluation_events">
+	<columns names="script_hash" ref-type="src-columns"/>
+	<columns names="hash" ref-type="dst-columns"/>
+</constraint>
+
 <relationship name="rel_script_evaluation_events_cost_model_params" type="relfk" layers="0"
 	 src-table="public.script_evaluation_events"
 	 dst-table="public.cost_model_params" reference-fk="cost_model_params_fk"
+	 src-required="false" dst-required="true"/>
+
+<relationship name="rel_script_evaluation_events_serialised_scripts" type="relfk" layers="0"
+	 src-table="public.script_evaluation_events"
+	 dst-table="public.serialised_scripts" reference-fk="serialised_scripts_fk"
 	 src-required="false" dst-required="true"/>
 
 </dbmodel>
