@@ -44,15 +44,8 @@ type DbTable f = Table f f
 --------------------------------------------------------------------------------
 -- cost_model_params -----------------------------------------------------------
 
-data
-  CostModelValuesRecord'
-    hash64
-    ledgerLang
-    protoVer
-    paramValues = MkCostModelValues
+data CostModelValuesRecord' hash64 paramValues = MkCostModelValues
   { cmPk :: hash64
-  , cmLedgerLanguage :: ledgerLang
-  , cmMajorProtocolVersion :: protoVer
   , cmParamValues :: paramValues
   }
   deriving (Show, Eq)
@@ -60,15 +53,11 @@ data
 type CostModelValuesRecord =
   CostModelValuesRecord'
     Hash64 -- pk
-    PlutusLedgerLanguage -- ledger_language
-    Int16 -- major_protocol_version
     [Int64] -- param_values
 
 type CostModelValuesRecordFields =
   CostModelValuesRecord'
     (Field SqlInt8) -- pk
-    (Field SqlInt2) -- ledger_language
-    (Field SqlInt2) -- major_protocol_version
     (Field (SqlArray SqlInt8)) -- param_values
 
 $(makeAdaptorAndInstanceInferrable "pCostModelValues" ''CostModelValuesRecord')
@@ -79,8 +68,6 @@ costModelValues =
     pCostModelValues
       MkCostModelValues
         { cmPk = tableField "pk"
-        , cmLedgerLanguage = tableField "ledger_language"
-        , cmMajorProtocolVersion = tableField "major_protocol_ver"
         , cmParamValues = tableField "param_values"
         }
 
@@ -105,15 +92,8 @@ insertCostModelValues conn hs =
 --------------------------------------------------------------------------------
 -- serialised_scripts ----------------------------------------------------------
 
-data
-  SerialisedScriptRecord'
-    hash64
-    ledgerLang
-    protoVer
-    serialised = MkSerialisedScriptRecord
+data SerialisedScriptRecord' hash64 serialised = MkSerialisedScriptRecord
   { ssHash :: hash64
-  , ssLedgerLanguage :: ledgerLang
-  , ssMajorProtocolVersion :: protoVer
   , ssSerialised :: serialised
   }
   deriving (Show, Eq)
@@ -121,15 +101,11 @@ data
 type SerialisedScriptRecord =
   SerialisedScriptRecord'
     ByteString -- hash
-    PlutusLedgerLanguage -- ledger_language
-    Int16 -- major_protocol_version
     ByteString -- serialised
 
 type SerialisedScriptRecordFields =
   SerialisedScriptRecord'
     (Field SqlBytea) -- hash
-    (Field SqlInt2) -- ledger_language
-    (Field SqlInt2) -- major_protocol_version
     (Field SqlBytea) -- serialised
 
 $( makeAdaptorAndInstanceInferrable
@@ -143,8 +119,6 @@ serialisedScripts =
     pSerialisedScript
       MkSerialisedScriptRecord
         { ssHash = tableField "hash"
-        , ssLedgerLanguage = tableField "ledger_language"
-        , ssMajorProtocolVersion = tableField "major_protocol_ver"
         , ssSerialised = tableField "serialised"
         }
 
@@ -171,6 +145,8 @@ data
     slotNo
     blockNo
     evaluatedSuccessfully
+    ledgerLang
+    majorProtoVer
     budgetCpu
     budgetMem
     scriptHash
@@ -181,6 +157,8 @@ data
   { eeSlotNo :: slotNo
   , eeBlockNo :: blockNo
   , eeEvaluatedSuccessfully :: evaluatedSuccessfully
+  , eeLedgerLanguage :: ledgerLang
+  , eeMajorProtocolVersion :: majorProtoVer
   , eeExecBudgetCpu :: budgetCpu
   , eeExecBudgetMem :: budgetMem
   , eeScriptHash :: scriptHash
@@ -196,6 +174,8 @@ type EvaluationEventRecord =
     SlotNo -- slot
     BlockNo -- block
     Bool -- evaluated_successfully
+    PlutusLedgerLanguage -- ledger_language
+    Int16 -- major_protocol_version
     Int64 -- exec_budget_cpu
     Int64 -- exec_budget_mem
     ByteString -- script_hash
@@ -209,6 +189,8 @@ type EvaluationEventRecordFields =
     (Field SqlInt8) -- block
     (Field SqlInt8) -- slot
     (Field SqlBool) -- evaluated_successfully
+    (Field SqlInt2) -- ledger_language
+    (Field SqlInt2) -- major_protocol_version
     (Field SqlInt8) -- exec_budget_cpu
     (Field SqlInt8) -- exec_budget_mem
     (Field SqlBytea) -- script_hash
@@ -227,6 +209,8 @@ scriptEvaluationEvents =
         { eeSlotNo = tableField "slot"
         , eeBlockNo = tableField "block"
         , eeEvaluatedSuccessfully = tableField "evaluated_successfully"
+        , eeLedgerLanguage = tableField "ledger_language"
+        , eeMajorProtocolVersion = tableField "major_protocol_ver"
         , eeExecBudgetCpu = tableField "exec_budget_cpu"
         , eeExecBudgetMem = tableField "exec_budget_mem"
         , eeScriptHash = tableField "script_hash"

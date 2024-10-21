@@ -93,13 +93,8 @@ data EventRecords = MkEventRecords
   , script :: DB.SerialisedScriptRecord
   }
 
-indexLedgerEvents
-  :: SlotNo
-  -> BlockNo
-  -> [LedgerEvent]
-  -> [EventRecords]
-indexLedgerEvents eeSlotNo eeBlockNo =
-  foldr indexLedgerEvent []
+indexLedgerEvents :: SlotNo -> BlockNo -> [LedgerEvent] -> [EventRecords]
+indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
  where
   indexLedgerEvent :: LedgerEvent -> [EventRecords] -> [EventRecords]
   indexLedgerEvent ledgerEvent events =
@@ -132,6 +127,8 @@ indexLedgerEvents eeSlotNo eeBlockNo =
           { eeSlotNo
           , eeBlockNo
           , eeEvaluatedSuccessfully
+          , eeLedgerLanguage
+          , eeMajorProtocolVersion
           , eeExecBudgetCpu
           , eeExecBudgetMem
           , eeScriptHash
@@ -145,16 +142,12 @@ indexLedgerEvents eeSlotNo eeBlockNo =
         eeCostModelParams <&> \cmPk ->
           DB.MkCostModelValues
             { cmPk
-            , cmLedgerLanguage = ssLedgerLanguage
-            , cmMajorProtocolVersion = ssMajorProtocolVersion
             , cmParamValues
             }
 
       script :: DB.SerialisedScriptRecord =
         DB.MkSerialisedScriptRecord
           { ssHash = eeScriptHash
-          , ssLedgerLanguage
-          , ssMajorProtocolVersion
           , ssSerialised
           }
 
@@ -168,10 +161,10 @@ indexLedgerEvents eeSlotNo eeBlockNo =
       cmParamValues :: [Int64] =
         getCostModelParams pwcCostModel
 
-      ssMajorProtocolVersion :: Int16 =
+      eeMajorProtocolVersion :: Int16 =
         getVersion pwcProtocolVersion
 
-      ssLedgerLanguage :: PlutusLedgerLanguage =
+      eeLedgerLanguage :: PlutusLedgerLanguage =
         case isLanguage @l of
           SPlutusV1 -> PlutusV1
           SPlutusV2 -> PlutusV2
@@ -223,7 +216,7 @@ indexLedgerEvents eeSlotNo eeBlockNo =
           & toStrict
        where
         version :: Binary.Version
-        version = toEnum (fromIntegral ssMajorProtocolVersion)
+        version = toEnum (fromIntegral eeMajorProtocolVersion)
 
 hashParamValues :: [Int64] -> Maybe Hash64
 hashParamValues = \case
