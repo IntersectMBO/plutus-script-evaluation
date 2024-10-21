@@ -3,13 +3,6 @@
 -- PostgreSQL version: 16.0
 -- Project Site: pgmodeler.io
 -- Model Author: ---
--- object: admin | type: ROLE --
--- DROP ROLE IF EXISTS admin;
-CREATE ROLE admin WITH 
-	CREATEROLE
-	LOGIN;
--- ddl-end --
-
 
 -- Database creation must be performed outside a multi lined SQL file. 
 -- These commands were put in this file only as a convenience.
@@ -48,29 +41,20 @@ COMMENT ON COLUMN public.script_evaluation_events.redeemer IS E'CBOR-encoded red
 -- ddl-end --
 COMMENT ON COLUMN public.script_evaluation_events.script_context IS E'CBOR-encoded ScriptContext';
 -- ddl-end --
-ALTER TABLE public.script_evaluation_events OWNER TO admin;
+ALTER TABLE public.script_evaluation_events OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.cost_model_params | type: TABLE --
 -- DROP TABLE IF EXISTS public.cost_model_params CASCADE;
 CREATE TABLE public.cost_model_params (
 	pk bigint NOT NULL,
-	param_values bigint[] NOT NULL
-
+	param_values bigint[] NOT NULL,
+	CONSTRAINT cost_model_params_pk PRIMARY KEY (pk)
 );
 -- ddl-end --
-COMMENT ON COLUMN public.cost_model_params.pk IS E'A synthetic PK obtained by hashing (ledger_language, major_protocol_version, param_values) using a fast non-cryptographically strong hashing algorithm like XXH3';
+COMMENT ON COLUMN public.cost_model_params.pk IS E'A synthetic PK obtained by hashing param_values using a fast non-cryptographically strong hashing algorithm like XXH3';
 -- ddl-end --
-ALTER TABLE public.cost_model_params OWNER TO admin;
--- ddl-end --
-
--- object: cost_model_params_pk | type: INDEX --
--- DROP INDEX IF EXISTS public.cost_model_params_pk CASCADE;
-CREATE UNIQUE INDEX cost_model_params_pk ON public.cost_model_params
-USING btree
-(
-	pk
-);
+ALTER TABLE public.cost_model_params OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.serialised_scripts | type: TABLE --

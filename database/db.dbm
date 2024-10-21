@@ -11,11 +11,6 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 layer-name-colors="#000000"
 	 layer-rect-colors="#b4b4b4"
 	 show-layer-names="false" show-layer-rects="false">
-<role name="admin"
- createrole="true"
- login="true">
-</role>
-
 <database name="mainnet_plutus_events" is-template="false" allow-conns="true">
 </database>
 
@@ -24,7 +19,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 
 <table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="14" z-value="0">
 	<schema name="public"/>
-	<role name="admin"/>
+	<role name="postgres"/>
 	<position x="940" y="60"/>
 	<column name="slot" not-null="true">
 		<type name="bigint" length="0"/>
@@ -71,24 +66,19 @@ CAUTION: Do not modify this file unless you know what you are doing.
 
 <table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="public"/>
-	<role name="admin"/>
+	<role name="postgres"/>
 	<position x="320" y="40"/>
 	<column name="pk" not-null="true">
 		<type name="bigint" length="0"/>
-		<comment> <![CDATA[A synthetic PK obtained by hashing (ledger_language, major_protocol_version, param_values) using a fast non-cryptographically strong hashing algorithm like XXH3]]> </comment>
+		<comment> <![CDATA[A synthetic PK obtained by hashing param_values using a fast non-cryptographically strong hashing algorithm like XXH3]]> </comment>
 	</column>
 	<column name="param_values" not-null="true">
 		<type name="bigint" length="0" dimension="1"/>
 	</column>
+	<constraint name="cost_model_params_pk" type="pk-constr" table="public.cost_model_params">
+		<columns names="pk" ref-type="src-columns"/>
+	</constraint>
 </table>
-
-<index name="cost_model_params_pk" table="public.cost_model_params"
-	 concurrent="false" unique="true" fast-update="false" buffering="false" nulls-not-distinct="false"
-	 index-type="btree" factor="0">
-		<idxelement use-sorting="false">
-			<column name="pk"/>
-		</idxelement>
-</index>
 
 <table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="public"/>
