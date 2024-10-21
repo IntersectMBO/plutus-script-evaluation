@@ -22,7 +22,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <schema name="public" layers="0" fill-color="#e1e1e1" name-color="#000000" sql-disabled="true">
 </schema>
 
-<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="12" z-value="0">
+<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="14" z-value="0">
 	<schema name="public"/>
 	<role name="admin"/>
 	<position x="940" y="60"/>
@@ -36,6 +36,12 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</column>
 	<column name="evaluated_successfully" not-null="true">
 		<type name="bool" length="0"/>
+	</column>
+	<column name="ledger_language" not-null="true">
+		<type name="smallint" length="0"/>
+	</column>
+	<column name="major_protocol_ver" not-null="true">
+		<type name="smallint" length="0"/>
 	</column>
 	<column name="exec_budget_cpu" not-null="true">
 		<type name="bigint" length="0"/>
@@ -63,19 +69,13 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</column>
 </table>
 
-<table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+<table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="public"/>
 	<role name="admin"/>
 	<position x="320" y="40"/>
 	<column name="pk" not-null="true">
 		<type name="bigint" length="0"/>
 		<comment> <![CDATA[A synthetic PK obtained by hashing (ledger_language, major_protocol_version, param_values) using a fast non-cryptographically strong hashing algorithm like XXH3]]> </comment>
-	</column>
-	<column name="ledger_language">
-		<type name="smallint" length="0"/>
-	</column>
-	<column name="major_protocol_ver">
-		<type name="smallint" length="0"/>
 	</column>
 	<column name="param_values" not-null="true">
 		<type name="bigint" length="0" dimension="1"/>
@@ -90,18 +90,12 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		</idxelement>
 </index>
 
-<table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+<table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="public"/>
 	<role name="postgres"/>
 	<position x="320" y="280"/>
 	<column name="hash" not-null="true">
 		<type name="bytea" length="0"/>
-	</column>
-	<column name="ledger_language" not-null="true">
-		<type name="smallint" length="0"/>
-	</column>
-	<column name="major_protocol_ver" not-null="true">
-		<type name="smallint" length="0"/>
 	</column>
 	<column name="serialised" not-null="true">
 		<type name="bytea" length="0"/>

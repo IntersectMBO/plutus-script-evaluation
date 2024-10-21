@@ -26,6 +26,8 @@ CREATE TABLE public.script_evaluation_events (
 	slot bigint NOT NULL,
 	block bigint NOT NULL,
 	evaluated_successfully bool NOT NULL,
+	ledger_language smallint NOT NULL,
+	major_protocol_ver smallint NOT NULL,
 	exec_budget_cpu bigint NOT NULL,
 	exec_budget_mem bigint NOT NULL,
 	script_hash bytea NOT NULL,
@@ -53,8 +55,6 @@ ALTER TABLE public.script_evaluation_events OWNER TO admin;
 -- DROP TABLE IF EXISTS public.cost_model_params CASCADE;
 CREATE TABLE public.cost_model_params (
 	pk bigint NOT NULL,
-	ledger_language smallint,
-	major_protocol_ver smallint,
 	param_values bigint[] NOT NULL
 
 );
@@ -77,8 +77,6 @@ USING btree
 -- DROP TABLE IF EXISTS public.serialised_scripts CASCADE;
 CREATE TABLE public.serialised_scripts (
 	hash bytea NOT NULL,
-	ledger_language smallint NOT NULL,
-	major_protocol_ver smallint NOT NULL,
 	serialised bytea NOT NULL,
 	CONSTRAINT serialised_scripts_pk PRIMARY KEY (hash)
 );
