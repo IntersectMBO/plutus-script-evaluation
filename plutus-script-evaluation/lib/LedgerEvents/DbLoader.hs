@@ -40,6 +40,7 @@ import Data.List (nub)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.String.Interpolate (i)
 import Data.Word (Word64)
+import Database (SerialisedScriptRecord' (ssLedgerLanguage))
 import Database qualified as DB
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as PostgreSQL
@@ -127,8 +128,6 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
           { eeSlotNo
           , eeBlockNo
           , eeEvaluatedSuccessfully
-          , eeLedgerLanguage
-          , eeMajorProtocolVersion
           , eeExecBudgetCpu
           , eeExecBudgetMem
           , eeScriptHash
@@ -148,6 +147,8 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
       script :: DB.SerialisedScriptRecord =
         DB.MkSerialisedScriptRecord
           { ssHash = eeScriptHash
+          , ssLedgerLanguage
+          , ssMajorProtocolVersion
           , ssSerialised
           }
 
@@ -161,10 +162,10 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
       cmParamValues :: [Int64] =
         getCostModelParams pwcCostModel
 
-      eeMajorProtocolVersion :: Int16 =
+      ssMajorProtocolVersion :: Int16 =
         getVersion pwcProtocolVersion
 
-      eeLedgerLanguage :: PlutusLedgerLanguage =
+      ssLedgerLanguage :: PlutusLedgerLanguage =
         case isLanguage @l of
           SPlutusV1 -> PlutusV1
           SPlutusV2 -> PlutusV2
@@ -216,7 +217,7 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
           & toStrict
        where
         version :: Binary.Version
-        version = toEnum (fromIntegral eeMajorProtocolVersion)
+        version = toEnum (fromIntegral ssMajorProtocolVersion)
 
 hashParamValues :: [Int64] -> Maybe Hash64
 hashParamValues = \case

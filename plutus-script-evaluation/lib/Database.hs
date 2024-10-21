@@ -92,8 +92,15 @@ insertCostModelValues conn hs =
 --------------------------------------------------------------------------------
 -- serialised_scripts ----------------------------------------------------------
 
-data SerialisedScriptRecord' hash64 serialised = MkSerialisedScriptRecord
+data
+  SerialisedScriptRecord'
+    hash64
+    ledgerLang
+    majorProtoVer
+    serialised = MkSerialisedScriptRecord
   { ssHash :: hash64
+  , ssLedgerLanguage :: ledgerLang
+  , ssMajorProtocolVersion :: majorProtoVer
   , ssSerialised :: serialised
   }
   deriving (Show, Eq)
@@ -101,11 +108,15 @@ data SerialisedScriptRecord' hash64 serialised = MkSerialisedScriptRecord
 type SerialisedScriptRecord =
   SerialisedScriptRecord'
     ByteString -- hash
+    PlutusLedgerLanguage -- ledger_language
+    Int16 -- major_protocol_version
     ByteString -- serialised
 
 type SerialisedScriptRecordFields =
   SerialisedScriptRecord'
     (Field SqlBytea) -- hash
+    (Field SqlInt2) -- ledger_language
+    (Field SqlInt2) -- major_protocol_version
     (Field SqlBytea) -- serialised
 
 $( makeAdaptorAndInstanceInferrable
@@ -119,6 +130,8 @@ serialisedScripts =
     pSerialisedScript
       MkSerialisedScriptRecord
         { ssHash = tableField "hash"
+        , ssLedgerLanguage = tableField "ledger_language"
+        , ssMajorProtocolVersion = tableField "major_protocol_ver"
         , ssSerialised = tableField "serialised"
         }
 
@@ -145,8 +158,6 @@ data
     slotNo
     blockNo
     evaluatedSuccessfully
-    ledgerLang
-    majorProtoVer
     budgetCpu
     budgetMem
     scriptHash
@@ -157,8 +168,6 @@ data
   { eeSlotNo :: slotNo
   , eeBlockNo :: blockNo
   , eeEvaluatedSuccessfully :: evaluatedSuccessfully
-  , eeLedgerLanguage :: ledgerLang
-  , eeMajorProtocolVersion :: majorProtoVer
   , eeExecBudgetCpu :: budgetCpu
   , eeExecBudgetMem :: budgetMem
   , eeScriptHash :: scriptHash
@@ -174,8 +183,6 @@ type EvaluationEventRecord =
     SlotNo -- slot
     BlockNo -- block
     Bool -- evaluated_successfully
-    PlutusLedgerLanguage -- ledger_language
-    Int16 -- major_protocol_version
     Int64 -- exec_budget_cpu
     Int64 -- exec_budget_mem
     ByteString -- script_hash
@@ -189,8 +196,6 @@ type EvaluationEventRecordFields =
     (Field SqlInt8) -- block
     (Field SqlInt8) -- slot
     (Field SqlBool) -- evaluated_successfully
-    (Field SqlInt2) -- ledger_language
-    (Field SqlInt2) -- major_protocol_version
     (Field SqlInt8) -- exec_budget_cpu
     (Field SqlInt8) -- exec_budget_mem
     (Field SqlBytea) -- script_hash
@@ -209,8 +214,6 @@ scriptEvaluationEvents =
         { eeSlotNo = tableField "slot"
         , eeBlockNo = tableField "block"
         , eeEvaluatedSuccessfully = tableField "evaluated_successfully"
-        , eeLedgerLanguage = tableField "ledger_language"
-        , eeMajorProtocolVersion = tableField "major_protocol_ver"
         , eeExecBudgetCpu = tableField "exec_budget_cpu"
         , eeExecBudgetMem = tableField "exec_budget_mem"
         , eeScriptHash = tableField "script_hash"
