@@ -68,6 +68,17 @@ CREATE TABLE public.serialised_scripts (
 ALTER TABLE public.serialised_scripts OWNER TO postgres;
 -- ddl-end --
 
+-- object: public.deserialised_scripts | type: TABLE --
+-- DROP TABLE IF EXISTS public.deserialised_scripts CASCADE;
+CREATE TABLE public.deserialised_scripts (
+	hash bytea NOT NULL,
+	deserialised jsonb NOT NULL,
+	CONSTRAINT deserialised_scripts_pk PRIMARY KEY (hash)
+);
+-- ddl-end --
+ALTER TABLE public.deserialised_scripts OWNER TO postgres;
+-- ddl-end --
+
 -- object: cost_model_params_fk | type: CONSTRAINT --
 -- ALTER TABLE public.script_evaluation_events DROP CONSTRAINT IF EXISTS cost_model_params_fk CASCADE;
 ALTER TABLE public.script_evaluation_events ADD CONSTRAINT cost_model_params_fk FOREIGN KEY (cost_model_params)
@@ -80,6 +91,13 @@ ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE public.script_evaluation_events ADD CONSTRAINT serialised_scripts_fk FOREIGN KEY (script_hash)
 REFERENCES public.serialised_scripts (hash) MATCH FULL
 ON DELETE RESTRICT ON UPDATE RESTRICT;
+-- ddl-end --
+
+-- object: hash_fk | type: CONSTRAINT --
+-- ALTER TABLE public.deserialised_scripts DROP CONSTRAINT IF EXISTS hash_fk CASCADE;
+ALTER TABLE public.deserialised_scripts ADD CONSTRAINT hash_fk FOREIGN KEY (hash)
+REFERENCES public.serialised_scripts (hash) MATCH FULL
+ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
 

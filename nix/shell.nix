@@ -54,6 +54,14 @@ cabalProject: {
         cabal run aggregate-script-events -- --event-dir dumps/events
       '';
     };
+
+    deserialise = {
+      description = "Deserialise Plutus Scripts from mainnet";
+      group = "general";
+      exec = ''
+        cabal run deserialise-scripts -- --database-conn-str "$DB_CONN_STRING"
+      '';
+    };
   };
 
   # env = {

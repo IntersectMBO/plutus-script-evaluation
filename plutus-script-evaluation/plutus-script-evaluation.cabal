@@ -60,6 +60,7 @@ library
     Types
 
   build-depends:
+    , aeson
     , async
     , base16-bytestring
     , bytestring
@@ -139,4 +140,30 @@ executable aggregate-script-events
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
     , plutus-script-evaluation
+    , with-utf8
+
+executable deserialise-scripts
+  import:         lang, deps
+  hs-source-dirs: deserialise-scripts
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:
+    Deserialise
+    Options
+
+  build-depends:
+    , aeson
+    , base64
+    , bytestring
+    , int-cast
+    , mtl
+    , optparse-applicative
+    , plutus-core
+    , plutus-ledger-api
+    , plutus-script-evaluation
+    , postgresql-simple
+    , some
+    , string-interpolate
+    , text
+    , vector
     , with-utf8
