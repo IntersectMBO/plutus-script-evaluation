@@ -4,6 +4,7 @@
 module Database where
 
 import Cardano.Slotting.Slot (SlotNo)
+import Data.Aeson qualified as Json
 import Data.ByteString (ByteString)
 import Data.Digest.Murmur64 (Hash64)
 import Data.Int (Int16, Int64)
@@ -11,6 +12,7 @@ import Data.Profunctor.Product.Default (Default)
 import Data.Profunctor.Product.TH (makeAdaptorAndInstanceInferrable)
 import Database.Orphans ()
 import Database.PostgreSQL.Simple (Connection)
+import Numeric.Natural (Natural)
 import Opaleye (
   Delete (..),
   Field,
@@ -23,17 +25,24 @@ import Opaleye (
   SqlBytea,
   SqlInt2,
   SqlInt8,
+  SqlJsonb,
   Table,
   ToFields,
   Unpackspec,
   doNothing,
+  limit,
+  maybeFields,
+  optional,
   rCount,
   runDelete,
   runInsert,
+  runSelect,
   selectTable,
   showSql,
   table,
   toFields,
+  where_,
+  (.==),
   (.>=),
  )
 import Ouroboros.Consensus.Block (BlockNo)
@@ -78,16 +87,17 @@ insertCostModelValues
   :: (Default ToFields CostModelValuesRecord CostModelValuesRecordFields)
   => Connection
   -> [CostModelValuesRecord]
-  -> IO Int64
+  -> IO Int
 insertCostModelValues conn hs =
-  runInsert
-    conn
-    Insert
-      { iTable = costModelValues
-      , iRows = map toFields hs
-      , iReturning = rCount
-      , iOnConflict = Just doNothing
-      }
+  fromIntegral -- Convert from Int64 to Int as we don't expect many rows
+    <$> runInsert
+      conn
+      Insert
+        { iTable = costModelValues
+        , iRows = map toFields hs
+        , iReturning = rCount
+        , iOnConflict = Just doNothing
+        }
 
 --------------------------------------------------------------------------------
 -- serialised_scripts ----------------------------------------------------------
@@ -139,16 +149,80 @@ insertSerialisedScripts
   :: (Default ToFields SerialisedScriptRecord SerialisedScriptRecordFields)
   => Connection
   -> [SerialisedScriptRecord]
-  -> IO Int64
-insertSerialisedScripts conn records = do
-  let insert =
-        Insert
-          { iTable = serialisedScripts
-          , iRows = map toFields records
-          , iReturning = rCount
-          , iOnConflict = Just doNothing
-          }
-  runInsert conn insert
+  -> IO Int
+insertSerialisedScripts conn records =
+  fromIntegral -- Convert from Int64 to Int as we don't expect many rows
+    <$> runInsert
+      conn
+      Insert
+        { iTable = serialisedScripts
+        , iRows = map toFields records
+        , iReturning = rCount
+        , iOnConflict = Just doNothing
+        }
+
+selectSerialisedScripts :: Connection -> IO [SerialisedScriptRecord]
+selectSerialisedScripts conn = runSelect conn (selectTable serialisedScripts)
+
+--------------------------------------------------------------------------------
+-- Deserialised scripts --------------------------------------------------------
+
+data DeserialisedScriptRecord' hash64 deserialised = MkDeserialisedScriptRecord
+  { dsHash :: hash64
+  , dsDeserialised :: deserialised
+  }
+  deriving (Show, Eq)
+
+type DeserialisedScriptRecord =
+  DeserialisedScriptRecord'
+    ByteString -- hash
+    Json.Value -- deserialised
+
+type DeserialisedScriptRecordFields =
+  DeserialisedScriptRecord'
+    (Field SqlBytea) -- hash
+    (Field SqlJsonb) -- deserialised
+
+$( makeAdaptorAndInstanceInferrable
+    "pDeserialisedScript"
+    ''DeserialisedScriptRecord'
+ )
+
+deserialisedScripts :: DbTable DeserialisedScriptRecordFields
+deserialisedScripts =
+  table "deserialised_scripts" $
+    pDeserialisedScript
+      MkDeserialisedScriptRecord
+        { dsHash = tableField "hash"
+        , dsDeserialised = tableField "deserialised"
+        }
+
+insertDeserialisedScripts
+  :: Connection -> [DeserialisedScriptRecord] -> IO Int
+insertDeserialisedScripts conn records =
+  fromIntegral --  Convert from Int64 to Int as we don't expect many rows
+    <$> runInsert
+      conn
+      Insert
+        { iTable = deserialisedScripts
+        , iRows = map toFields records
+        , iReturning = rCount
+        , iOnConflict = Just doNothing
+        }
+
+selectSerialisedScriptsToDeserialise
+  :: Connection -> Natural -> IO [SerialisedScriptRecord]
+selectSerialisedScriptsToDeserialise conn count =
+  runSelect conn $ limit (fromIntegral count) do
+    serialised@(MkSerialisedScriptRecord hash _ _ _) <-
+      selectTable serialisedScripts
+    maybeDeserialised <- optional do
+      row@(MkDeserialisedScriptRecord dsHash _) <-
+        selectTable deserialisedScripts
+      row <$ where_ (hash .== dsHash)
+    where_ do
+      maybeFields (toFields True) (const (toFields False)) maybeDeserialised
+    pure serialised
 
 --------------------------------------------------------------------------------
 -- script_evaluation_events ----------------------------------------------------
@@ -230,26 +304,28 @@ insertScriptEvaluationEvents
   :: (Default ToFields EvaluationEventRecord EvaluationEventRecordFields)
   => Connection
   -> [EvaluationEventRecord]
-  -> IO Int64
-insertScriptEvaluationEvents conn events = do
-  let insert =
-        Insert
-          { iTable = scriptEvaluationEvents
-          , iRows = map toFields events
-          , iReturning = rCount
-          , iOnConflict = Nothing
-          }
-  runInsert conn insert
+  -> IO Int
+insertScriptEvaluationEvents conn events =
+  fromIntegral -- Convert from Int64 to Int as we don't expect many rows
+    <$> runInsert
+      conn
+      Insert
+        { iTable = scriptEvaluationEvents
+        , iRows = map toFields events
+        , iReturning = rCount
+        , iOnConflict = Nothing
+        }
 
-deleteFromSlotOnwards :: Connection -> SlotNo -> IO Int64
-deleteFromSlotOnwards conn slotNo = do
-  let delete =
-        Delete
-          { dTable = scriptEvaluationEvents
-          , dWhere = \r -> eeSlotNo r .>= toFields slotNo
-          , dReturning = rCount
-          }
-  runDelete conn delete
+deleteFromSlotOnwards :: Connection -> SlotNo -> IO Int
+deleteFromSlotOnwards conn slotNo =
+  fromIntegral -- Convert from Int64 to Int as we don't expect many rows
+    <$> runDelete
+      conn
+      Delete
+        { dTable = scriptEvaluationEvents
+        , dWhere = \r -> eeSlotNo r .>= toFields slotNo
+        , dReturning = rCount
+        }
 
 --------------------------------------------------------------------------------
 -- Utility ---------------------------------------------------------------------

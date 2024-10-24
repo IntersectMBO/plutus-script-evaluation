@@ -10,7 +10,15 @@ import Data.Int (Int16)
 import Data.Profunctor.Product.Default (Default (..))
 import Data.Word (Word64)
 import Database.PostgreSQL.Simple.Types ()
-import Opaleye (Field, SqlInt2, SqlInt8, ToFields, toToFields)
+import Opaleye (
+  DefaultFromField (..),
+  Field,
+  SqlInt2,
+  SqlInt8,
+  ToFields,
+  fromPGSFromField,
+  toToFields,
+ )
 import Opaleye.Internal.HaskellDB.PrimQuery (Literal (IntegerLit))
 import Opaleye.Internal.PGTypes (literalColumn)
 import PlutusLedgerApi.Common (PlutusLedgerLanguage (..))
@@ -18,13 +26,20 @@ import PlutusLedgerApi.Common (PlutusLedgerLanguage (..))
 instance Default ToFields Int16 (Field SqlInt2) where
   def = toToFields (literalColumn . IntegerLit . fromIntegral)
 
+instance DefaultFromField SqlInt2 Int16 where
+  defaultFromField = fromPGSFromField
+
 instance Default ToFields PlutusLedgerLanguage (Field SqlInt2) where
-  def = toToFields \case
-    PlutusV1 -> sqlInt2 1
-    PlutusV2 -> sqlInt2 2
-    PlutusV3 -> sqlInt2 3
+  -- DB counts constructors from 1 while derived Enum instance counts from 0,
+  -- so we need to increment by 1 when writing to DB
+  def = toToFields (sqlInt2 . succ . fromIntegral . fromEnum)
    where
     sqlInt2 = literalColumn . IntegerLit
+
+instance DefaultFromField SqlInt2 PlutusLedgerLanguage where
+  -- DB counts constructors from 1 while derived Enum instance counts from 0,
+  -- so we need to decrement by 1 when reading from DB
+  defaultFromField = toEnum . pred <$> fromPGSFromField
 
 instance Default ToFields SlotNo (Field SqlInt8) where
   def = toToFields (literalColumn . IntegerLit . fromIntegral . unSlotNo)
