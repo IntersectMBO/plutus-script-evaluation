@@ -49,12 +49,16 @@ library
   import:          lang, deps
   hs-source-dirs:  lib
   exposed-modules:
+    Aggregate
     Database
     Database.Orphans
+    Deserialise
+    Dump
     FileStorage
     LedgerEvents.DbLoader
     LedgerEvents.FileWriter
     LedgerStates
+    Load
     Render
     Streaming
     Types
@@ -63,6 +67,7 @@ library
     , aeson
     , async
     , base16-bytestring
+    , base64
     , bytestring
     , cardano-api                                  ^>=9.3.0.0
     , cardano-ledger-alonzo
@@ -71,35 +76,36 @@ library
     , cardano-slotting                             ^>=0.2.0.0
     , deepseq
     , dlist
+    , int-cast
+    , mtl
     , murmur-hash                                  ^>=0.1.0.10
     , opaleye
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , path
     , path-io
+    , plutus-core
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
     , postgresql-simple
     , product-profunctors
     , serialise
+    , some
     , string-interpolate                           ^>=0.3
     , text
     , transformers
+    , vector
 
 executable dump-script-events
   import:         lang, deps
   hs-source-dirs: dump-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
-  other-modules:
-    Dump
-    Options
-
+  other-modules:  Options
   build-depends:
     , cardano-api               ^>=9.3.0.0
     , optparse-applicative
     , path
-    , path-io
     , plutus-script-evaluation
     , with-utf8
 
@@ -108,19 +114,12 @@ executable load-script-events
   hs-source-dirs: load-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
-  other-modules:
-    Load
-    Options
-
+  other-modules:  Options
   build-depends:
-    , bytestring
     , cardano-api               ^>=9.3.0.0
     , optparse-applicative
     , path
-    , path-io
     , plutus-script-evaluation
-    , postgresql-simple
-    , string-interpolate
     , with-utf8
 
 executable aggregate-script-events
@@ -128,17 +127,10 @@ executable aggregate-script-events
   hs-source-dirs: aggregate-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
-  other-modules:
-    Aggregate
-    Options
-
+  other-modules:  Options
   build-depends:
-    , cardano-api                                  ^>=9.3.0.0
     , optparse-applicative
     , path
-    , path-io
-    , plutus-ledger-api
-    , plutus-ledger-api:plutus-ledger-api-testlib
     , plutus-script-evaluation
     , with-utf8
 
@@ -147,23 +139,8 @@ executable deserialise-scripts
   hs-source-dirs: deserialise-scripts
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
-  other-modules:
-    Deserialise
-    Options
-
+  other-modules:  Options
   build-depends:
-    , aeson
-    , base64
-    , bytestring
-    , int-cast
-    , mtl
     , optparse-applicative
-    , plutus-core
-    , plutus-ledger-api
     , plutus-script-evaluation
-    , postgresql-simple
-    , some
-    , string-interpolate
-    , text
-    , vector
     , with-utf8

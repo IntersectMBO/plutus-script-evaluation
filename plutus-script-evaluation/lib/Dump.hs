@@ -1,22 +1,42 @@
-module Dump (dumpScriptEvents) where
+module Dump (
+  dumpScriptEvents,
+  Options (..),
+) where
 
+import Cardano.Api.Shelley (
+  FileDirection (In),
+  NetworkId,
+  NodeConfigFile,
+  SocketPath,
+ )
+import Data.Word (Word64)
 import LedgerEvents.FileWriter qualified as FileWriter
 import LedgerStates (
   IndexerState (IndexerState),
   lastCheckpoint,
   makeLedgerStateEventsIndexer,
  )
-import Options qualified as O
+import Path (Dir, SomeBase)
 import Path.IO (ensureDir, makeAbsolute)
 import Render qualified
 import Streaming (subscribeToChainSyncEvents)
 import Types (Checkpoint (Checkpoint))
 
+data Options = Options
+  { optsConfigPath :: NodeConfigFile In
+  , optsSocketPath :: SocketPath
+  , optsNetworkId :: NetworkId
+  , optsEventsPerFile :: Word64
+  , optsDumpDir :: SomeBase Dir
+  , optsCheckpointDir :: SomeBase Dir
+  }
+  deriving (Show)
+
 {- | Stream blocks from a local node, and periodically dump ledger events
 and checkpoint ledger state.
 -}
-dumpScriptEvents :: O.Options -> IO ()
-dumpScriptEvents O.Options{..} = do
+dumpScriptEvents :: Options -> IO ()
+dumpScriptEvents Options{..} = do
   checkpointsDir <- makeAbsolute optsCheckpointDir
   eventsDir <- makeAbsolute optsDumpDir
   (env, Checkpoint chainPoint ledgerState) <-

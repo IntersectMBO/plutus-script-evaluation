@@ -2,7 +2,7 @@ module Main (main) where
 
 import Aggregate (aggregateScriptEvents)
 import Main.Utf8 (withUtf8)
-import Options (parserInfo)
+import Options (Options (optsEventsDir), parserInfo)
 import Options.Applicative (execParser)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdin, stdout)
 
@@ -15,5 +15,5 @@ main :: IO ()
 main = withUtf8 do
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout LineBuffering
-  metrics <- aggregateScriptEvents =<< execParser parserInfo
+  metrics <- aggregateScriptEvents . optsEventsDir =<< execParser parserInfo
   print metrics

@@ -8,21 +8,11 @@ module Options (
 )
 where
 
-import Cardano.Api (File (File), FileDirection (In), NodeConfigFile, SocketPath)
+import Cardano.Api (File (File))
 import Cardano.Api qualified as Cardano
-import Data.Word (Word64)
+import Dump (Options (..))
 import Options.Applicative qualified as O
 import Path (Dir, SomeBase, parseSomeDir)
-
-data Options = Options
-  { optsConfigPath :: NodeConfigFile In
-  , optsSocketPath :: SocketPath
-  , optsNetworkId :: Cardano.NetworkId
-  , optsEventsPerFile :: Word64
-  , optsDumpDir :: SomeBase Dir
-  , optsCheckpointDir :: SomeBase Dir
-  }
-  deriving (Show)
 
 options :: O.Parser Options
 options = do

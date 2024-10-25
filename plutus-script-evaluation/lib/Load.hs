@@ -1,6 +1,16 @@
-module Load (loadScriptEvents) where
+module Load (
+  loadScriptEvents,
+  Options (..),
+) where
 
-import Cardano.Api.Shelley (chainPointToSlotNo)
+import Cardano.Api.Shelley (
+  FileDirection (In),
+  NetworkId,
+  NodeConfigFile,
+  SocketPath,
+  chainPointToSlotNo,
+ )
+import Data.ByteString (ByteString)
 import Data.Maybe (fromMaybe)
 import Data.String.Interpolate (i)
 import Database qualified as Db
@@ -11,17 +21,26 @@ import LedgerStates (
   lastCheckpoint,
   makeLedgerStateEventsIndexer,
  )
-import Options qualified as O
+import Path (Dir, SomeBase)
 import Path.IO (ensureDir, makeAbsolute)
 import Render qualified
 import Streaming (subscribeToChainSyncEvents)
 import Types (Checkpoint (Checkpoint))
 
+data Options = Options
+  { optsConfigPath :: NodeConfigFile In
+  , optsSocketPath :: SocketPath
+  , optsNetworkId :: NetworkId
+  , optsCheckpointDir :: SomeBase Dir
+  , optsDatabaseConnStr :: ByteString
+  }
+  deriving (Show)
+
 {- | Stream blocks from a local node inserting script evaluation ledger events
 into the database.
 -}
-loadScriptEvents :: O.Options -> IO ()
-loadScriptEvents O.Options{..} = do
+loadScriptEvents :: Options -> IO ()
+loadScriptEvents Options{..} = do
   checkpointsDir <- makeAbsolute optsCheckpointDir
   (env, Checkpoint chainPoint ledgerState) <-
     lastCheckpoint optsConfigPath checkpointsDir

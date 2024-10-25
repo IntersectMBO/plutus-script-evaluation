@@ -8,11 +8,8 @@ module Options (
 )
 where
 
-import Data.ByteString (ByteString)
+import Deserialise (Options (..))
 import Options.Applicative qualified as O
-
-newtype Options = Options {optsDatabaseConnStr :: ByteString}
-  deriving (Show)
 
 options :: O.Parser Options
 options = do

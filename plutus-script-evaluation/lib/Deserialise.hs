@@ -6,6 +6,7 @@ import Control.Monad.Error.Class (MonadError)
 import Data.Aeson (toJSON, (.=))
 import Data.Aeson qualified as Json
 import Data.Base64.Types qualified as Base64
+import Data.ByteString (ByteString)
 import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Short qualified as BS
 import Data.Function ((&))
@@ -16,7 +17,6 @@ import Data.Vector qualified as Vector
 import Database qualified as DB
 import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
 import Numeric.Natural (Natural)
-import Options (Options (..))
 import PlutusCore (DefaultUni (..), ValueOf (..))
 import PlutusCore.Default (noMoreTypeFunctions)
 import PlutusCore.Default qualified as U
@@ -25,6 +25,9 @@ import PlutusLedgerApi.Common (Data (..), ScriptNamedDeBruijn (..))
 import PlutusLedgerApi.Common qualified as P
 import PlutusPrelude (showText)
 import UntypedPlutusCore qualified as U
+
+newtype Options = Options {optsDatabaseConnStr :: ByteString}
+  deriving (Show)
 
 deserialiseScripts :: Options -> IO ()
 deserialiseScripts Options{optsDatabaseConnStr} =

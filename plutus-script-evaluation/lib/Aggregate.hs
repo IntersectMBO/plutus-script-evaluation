@@ -6,8 +6,7 @@ import Data.List (foldl')
 import FileStorage (Order (..))
 import FileStorage qualified
 import Numeric.Natural (Natural)
-import Options (Options (Options, optsEventsDir))
-import Path (Abs, File, Path)
+import Path (Abs, Dir, File, Path, SomeBase)
 import Path.IO (makeAbsolute)
 import PlutusLedgerApi.Common (PlutusLedgerLanguage (..))
 import PlutusLedgerApi.Test.EvaluationEvent (
@@ -16,8 +15,8 @@ import PlutusLedgerApi.Test.EvaluationEvent (
   ScriptEvaluationResult (..),
  )
 
-aggregateScriptEvents :: Options -> IO Metrics
-aggregateScriptEvents Options{..} = do
+aggregateScriptEvents :: SomeBase Dir -> IO Metrics
+aggregateScriptEvents optsEventsDir = do
   eventsDir <- makeAbsolute optsEventsDir
   FileStorage.listFilesSorted Asc eventsDir
     >>= foldlM aggregateFile mempty
