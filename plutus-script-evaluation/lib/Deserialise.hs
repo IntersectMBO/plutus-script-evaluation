@@ -1,12 +1,11 @@
 module Deserialise where
 
-import Control.Exception (bracket, throwIO)
+import Control.Exception (throwIO)
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError)
 import Data.Aeson (toJSON, (.=))
 import Data.Aeson qualified as Json
 import Data.Base64.Types qualified as Base64
-import Data.ByteString (ByteString)
 import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Short qualified as BS
 import Data.Function ((&))
@@ -15,7 +14,7 @@ import Data.Some (withSome)
 import Data.String.Interpolate (i)
 import Data.Vector qualified as Vector
 import Database qualified as DB
-import Database.PostgreSQL.Simple (Connection, close, connectPostgreSQL)
+import Database.PostgreSQL.Simple (Connection)
 import Numeric.Natural (Natural)
 import PlutusCore (DefaultUni (..), ValueOf (..))
 import PlutusCore.Default (noMoreTypeFunctions)
@@ -26,14 +25,10 @@ import PlutusLedgerApi.Common qualified as P
 import PlutusPrelude (showText)
 import UntypedPlutusCore qualified as U
 
-newtype Options = Options {optsDatabaseConnStr :: ByteString}
-  deriving (Show)
-
-deserialiseScripts :: Options -> IO ()
-deserialiseScripts Options{optsDatabaseConnStr} =
-  bracket (connectPostgreSQL optsDatabaseConnStr) close \conn -> do
-    n <- deserialiseBatch conn 0
-    putStrLn [i|Inserted #{n} de-serialised scripts.|]
+deserialiseScripts :: Connection -> IO ()
+deserialiseScripts conn = do
+  n <- deserialiseBatch conn 0
+  putStrLn [i|Inserted #{n} de-serialised scripts.|]
 
 deserialiseBatch :: Connection -> Int -> IO Int
 deserialiseBatch conn insertedOverall = do
