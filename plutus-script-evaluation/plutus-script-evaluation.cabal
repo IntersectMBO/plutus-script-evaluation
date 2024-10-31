@@ -59,6 +59,7 @@ library
     LedgerEvents.FileWriter
     LedgerStates
     Load
+    Materialise
     Render
     Streaming
     Types
@@ -120,6 +121,8 @@ executable load-script-events
     , optparse-applicative
     , path
     , plutus-script-evaluation
+    , postgresql-simple
+    , pretty-show
     , with-utf8
 
 executable aggregate-script-events
@@ -141,6 +144,21 @@ executable deserialise-scripts
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
+    , bytestring
     , optparse-applicative
     , plutus-script-evaluation
+    , postgresql-simple
+    , with-utf8
+
+executable materialise-views
+  import:         lang, deps
+  hs-source-dirs: materialise-views
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:  Options
+  build-depends:
+    , bytestring
+    , optparse-applicative
+    , plutus-script-evaluation
+    , postgresql-simple
     , with-utf8
