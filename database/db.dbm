@@ -3,7 +3,7 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="4"
+<dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="14"
 	 last-position="0,0" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
@@ -11,6 +11,21 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 layer-name-colors="#000000"
 	 layer-rect-colors="#b4b4b4"
 	 show-layer-names="false" show-layer-rects="false">
+<role name="plutus-admin"
+ superuser="true"
+ createdb="true"
+ createrole="true"
+ login="true">
+</role>
+
+<role name="plutus-indexer"
+ login="true">
+</role>
+
+<role name="plutus-reader"
+ login="true">
+</role>
+
 <database name="mainnet_plutus_events" is-template="false" allow-conns="true">
 </database>
 
@@ -19,7 +34,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 
 <table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="12" z-value="0">
 	<schema name="public"/>
-	<role name="postgres"/>
+	<role name="&quot;plutus-admin&quot;"/>
 	<position x="940" y="60"/>
 	<column name="slot" not-null="true">
 		<type name="bigint" length="0"/>
@@ -60,7 +75,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 
 <table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="public"/>
-	<role name="postgres"/>
+	<role name="&quot;plutus-admin&quot;"/>
 	<position x="320" y="40"/>
 	<column name="pk" not-null="true">
 		<type name="bigint" length="0"/>
@@ -76,7 +91,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 
 <table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="public"/>
-	<role name="postgres"/>
+	<role name="&quot;plutus-admin&quot;"/>
 	<position x="320" y="180"/>
 	<column name="hash" not-null="true">
 		<type name="bytea" length="0"/>
@@ -97,7 +112,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 
 <table name="deserialised_scripts" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="public"/>
-	<role name="postgres"/>
+	<role name="&quot;plutus-admin&quot;"/>
 	<position x="320" y="360"/>
 	<column name="hash" not-null="true">
 		<type name="bytea" length="0"/>
@@ -109,6 +124,90 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<columns names="hash" ref-type="src-columns"/>
 	</constraint>
 </table>
+
+<view name="scripts" layers="0" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="public"/>
+	<role name="&quot;plutus-admin&quot;"/>
+	<position x="1060" y="460"/>
+	<definition> <![CDATA[select ds.hash, ss.ledger_language, ss.major_protocol_ver, ds.deserialised
+from deserialised_scripts as ds 
+join serialised_scripts as ss on ds.hash = ss.hash]]> </definition>
+</view>
+
+<function name="jsonb_array_to_text_array"
+		window-func="false"
+		returns-setof="false"
+		behavior-type="STRICT"
+		function-type="IMMUTABLE"
+		security-type="SECURITY INVOKER"
+		parallel-type="PARALLEL SAFE"
+		execution-cost="100"
+		row-amount="0">
+	<schema name="public"/>
+	<role name="&quot;plutus-admin&quot;"/>
+	<language name="sql"/>
+	<return-type>
+	<type name="text" length="0" dimension="1"/>
+	</return-type>
+	<parameter name="_js" in="true">
+		<type name="jsonb" length="0"/>
+	</parameter>
+	<definition> <![CDATA[RETURN ARRAY(SELECT jsonb_array_elements_text(_js) AS jsonb_array_elements_text);]]> </definition>
+</function>
+
+<view name="builtin_version_num_usages" layers="0" materialized="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="public"/>
+	<role name="&quot;plutus-admin&quot;"/>
+	<comment> <![CDATA[For each combo of builtin function, Plutus ledger language and major protocol version selects how many times it was used by scripts.]]> </comment>
+	<position x="780" y="520"/>
+	<definition> <![CDATA[SELECT
+  UNNEST(
+    JSONB_ARRAY_TO_TEXT_ARRAY (
+      JSONB_PATH_QUERY_ARRAY(
+        DESERIALISED,
+        '$.**?(@.ctor == "Builtin").fun'::JSONPATH
+      )
+    )
+  ) AS BUILTIN,
+  LEDGER_LANGUAGE,
+  MAJOR_PROTOCOL_VER,
+  COUNT(*) AS NUM_USAGES
+FROM
+  SCRIPTS
+GROUP BY
+  BUILTIN,
+  LEDGER_LANGUAGE,
+  MAJOR_PROTOCOL_VER
+ORDER BY
+  NUM_USAGES DESC]]> </definition>
+</view>
+
+<view name="builtin_version_num_scripts" layers="0" materialized="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="public"/>
+	<role name="&quot;plutus-admin&quot;"/>
+	<comment> <![CDATA[For each combo of builtin function, Plutus ledger language and major protocol version selects how many scripts used it.]]> </comment>
+	<position x="780" y="460"/>
+	<definition> <![CDATA[SELECT
+  UNNEST(
+    JSONB_ARRAY_TO_TEXT_ARRAY (
+      JSONB_PATH_QUERY_ARRAY(
+        DESERIALISED,
+        '$.**?(@."ctor" == "Builtin")."fun"'::JSONPATH
+      )
+    )
+  ) AS BUILTIN,
+  LEDGER_LANGUAGE,
+  MAJOR_PROTOCOL_VER,
+  COUNT(DISTINCT HASH) AS NUM_SCRIPTS
+FROM
+  SCRIPTS
+GROUP BY
+  BUILTIN,
+  LEDGER_LANGUAGE,
+  MAJOR_PROTOCOL_VER
+ORDER BY
+  NUM_SCRIPTS DESC]]> </definition>
+</view>
 
 <constraint name="cost_model_params_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="RESTRICT" del-action="RESTRICT" ref-table="public.cost_model_params" table="public.script_evaluation_events">
@@ -143,8 +242,68 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 dst-table="public.serialised_scripts" reference-fk="hash_fk"
 	 src-required="false" dst-required="true">
 	<label ref-type="name-label">
-		<position x="193.069" y="-11.253"/>
+		<position x="312.583" y="-23.853"/>
 	</label>
 </relationship>
 
+<permission>
+	<object name="public.cost_model_params" type="table"/>
+	<roles names="&quot;plutus-indexer&quot;"/>
+	<privileges insert="true"/>
+</permission>
+<permission>
+	<object name="public.deserialised_scripts" type="table"/>
+	<roles names="&quot;plutus-indexer&quot;"/>
+	<privileges insert="true"/>
+</permission>
+<permission>
+	<object name="public.script_evaluation_events" type="table"/>
+	<roles names="&quot;plutus-indexer&quot;"/>
+	<privileges select="true" delete="true" insert="true"/>
+</permission>
+<permission>
+	<object name="public.serialised_scripts" type="table"/>
+	<roles names="&quot;plutus-indexer&quot;"/>
+	<privileges insert="true"/>
+</permission>
+<permission>
+	<object name="public.serialised_scripts" type="table"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.script_evaluation_events" type="table"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.deserialised_scripts" type="table"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.cost_model_params" type="table"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.scripts" type="view"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.jsonb_array_to_text_array(jsonb)" type="function"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges execute="true"/>
+</permission>
+<permission>
+	<object name="public.builtin_version_num_scripts" type="view"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.builtin_version_num_usages" type="view"/>
+	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
 </dbmodel>

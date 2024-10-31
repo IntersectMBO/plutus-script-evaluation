@@ -62,6 +62,14 @@ cabalProject: {
         cabal run deserialise-scripts -- --database-conn-str "$DB_CONN_STRING"
       '';
     };
+
+    materialise = {
+      description = "Materialise database views";
+      group = "general";
+      exec = ''
+        cabal run materialise-views -- --database-conn-str "$DB_CONN_STRING"
+      '';
+    };
   };
 
   # env = {

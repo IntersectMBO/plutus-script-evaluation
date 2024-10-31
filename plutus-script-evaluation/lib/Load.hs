@@ -14,7 +14,7 @@ import Data.ByteString (ByteString)
 import Data.Maybe (fromMaybe)
 import Data.String.Interpolate (i)
 import Database qualified as Db
-import Database.PostgreSQL.Simple (connectPostgreSQL)
+import Database.PostgreSQL.Simple (Connection)
 import LedgerEvents.DbLoader (makeEventIndexer)
 import LedgerStates (
   IndexerState (..),
@@ -39,15 +39,14 @@ data Options = Options
 {- | Stream blocks from a local node inserting script evaluation ledger events
 into the database.
 -}
-loadScriptEvents :: Options -> IO ()
-loadScriptEvents Options{..} = do
+loadScriptEvents :: Connection -> Options -> IO ()
+loadScriptEvents conn Options{..} = do
   checkpointsDir <- makeAbsolute optsCheckpointDir
   (env, Checkpoint chainPoint ledgerState) <-
     lastCheckpoint optsConfigPath checkpointsDir
 
   putStrLn $ Render.startChainPoint chainPoint
 
-  conn <- connectPostgreSQL optsDatabaseConnStr
   let slot = fromMaybe 0 (chainPointToSlotNo chainPoint)
   numDeleted <- Db.deleteFromSlotOnwards conn slot
   putStrLn [i|Deleted #{numDeleted} events (slot >= #{slot}).|]

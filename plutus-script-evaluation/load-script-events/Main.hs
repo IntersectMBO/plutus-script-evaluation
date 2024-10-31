@@ -1,21 +1,25 @@
 module Main (main) where
 
-import Load (loadScriptEvents)
+import Control.Exception (bracket)
+import Database.PostgreSQL.Simple (close, connectPostgreSQL)
+import Deserialise (deserialiseScripts)
+import Load (Options (..), loadScriptEvents)
 import Main.Utf8 (withUtf8)
+import Materialise (materialiseViews)
 import Options (parserInfo)
 import Options.Applicative qualified as O
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdin, stdout)
+import Text.Show.Pretty (pPrint)
 
-{- Example:
-
-cabal run load-script-events -- \
-  --mainnet \
-  --socket-path "$CARDANO_NODE_SOCKET_PATH" \
-  --config "$CARDANO_NODE_CONFIG_PATH" \
-  --checkpoint-dir dumps/checkpoints
--}
 main :: IO ()
 main = withUtf8 do
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout LineBuffering
-  loadScriptEvents =<< O.execParser parserInfo
+
+  opts@Options{optsDatabaseConnStr} <- O.execParser parserInfo
+  pPrint opts
+
+  bracket (connectPostgreSQL optsDatabaseConnStr) close \conn -> do
+    loadScriptEvents conn opts
+    deserialiseScripts conn
+    materialiseViews conn
