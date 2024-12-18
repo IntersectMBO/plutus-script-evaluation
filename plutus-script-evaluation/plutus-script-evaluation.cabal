@@ -69,7 +69,7 @@ library
     , base16-bytestring
     , base64
     , bytestring
-    , cardano-api                                  ^>=9.3.0.0
+    , cardano-api                                  ^>=10.4
     , cardano-ledger-alonzo
     , cardano-ledger-binary
     , cardano-ledger-core
@@ -103,7 +103,7 @@ executable dump-script-events
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , cardano-api               ^>=9.3.0.0
+    , cardano-api               ^>=10.4
     , optparse-applicative
     , path
     , plutus-script-evaluation
@@ -116,7 +116,7 @@ executable load-script-events
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , cardano-api               ^>=9.3.0.0
+    , cardano-api               ^>=10.4
     , optparse-applicative
     , path
     , plutus-script-evaluation
