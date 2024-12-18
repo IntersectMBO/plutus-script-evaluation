@@ -158,7 +158,7 @@ ORDER BY
 -- ddl-end --
 COMMENT ON MATERIALIZED VIEW public.builtin_version_num_usages IS E'For each combo of builtin function, Plutus ledger language and major protocol version selects how many times it was used by scripts.';
 -- ddl-end --
-ALTER MATERIALIZED VIEW public.builtin_version_num_usages OWNER TO "plutus-admin";
+ALTER MATERIALIZED VIEW public.builtin_version_num_usages OWNER TO "plutus-indexer";
 -- ddl-end --
 
 -- object: public.builtin_version_num_scripts | type: MATERIALIZED VIEW --
@@ -188,7 +188,7 @@ ORDER BY
 -- ddl-end --
 COMMENT ON MATERIALIZED VIEW public.builtin_version_num_scripts IS E'For each combo of builtin function, Plutus ledger language and major protocol version selects how many scripts used it.';
 -- ddl-end --
-ALTER MATERIALIZED VIEW public.builtin_version_num_scripts OWNER TO "plutus-admin";
+ALTER MATERIALIZED VIEW public.builtin_version_num_scripts OWNER TO "plutus-indexer";
 -- ddl-end --
 
 -- object: cost_model_params_fk | type: CONSTRAINT --
@@ -218,8 +218,8 @@ GRANT INSERT
    TO "plutus-indexer";
 -- ddl-end --
 
--- object: grant_a_c9a5a89e7c | type: PERMISSION --
-GRANT INSERT
+-- object: grant_ra_c9a5a89e7c | type: PERMISSION --
+GRANT SELECT,INSERT
    ON TABLE public.deserialised_scripts
    TO "plutus-indexer";
 -- ddl-end --
@@ -230,8 +230,8 @@ GRANT SELECT,INSERT,DELETE
    TO "plutus-indexer";
 -- ddl-end --
 
--- object: grant_a_44c1addc25 | type: PERMISSION --
-GRANT INSERT
+-- object: grant_ra_44c1addc25 | type: PERMISSION --
+GRANT SELECT,INSERT
    ON TABLE public.serialised_scripts
    TO "plutus-indexer";
 -- ddl-end --
@@ -282,6 +282,12 @@ GRANT SELECT
 GRANT SELECT
    ON TABLE public.builtin_version_num_usages
    TO "plutus-reader";
+-- ddl-end --
+
+-- object: grant_r_5502b8d12b | type: PERMISSION --
+GRANT SELECT
+   ON TABLE public.scripts
+   TO "plutus-indexer";
 -- ddl-end --
 
 

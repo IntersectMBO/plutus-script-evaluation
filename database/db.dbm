@@ -3,7 +3,7 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="14"
+<dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="15"
 	 last-position="0,0" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
@@ -157,7 +157,7 @@ join serialised_scripts as ss on ds.hash = ss.hash]]> </definition>
 
 <view name="builtin_version_num_usages" layers="0" materialized="true" collapse-mode="2" max-obj-count="0" z-value="0">
 	<schema name="public"/>
-	<role name="&quot;plutus-admin&quot;"/>
+	<role name="&quot;plutus-indexer&quot;"/>
 	<comment> <![CDATA[For each combo of builtin function, Plutus ledger language and major protocol version selects how many times it was used by scripts.]]> </comment>
 	<position x="780" y="520"/>
 	<definition> <![CDATA[SELECT
@@ -184,7 +184,7 @@ ORDER BY
 
 <view name="builtin_version_num_scripts" layers="0" materialized="true" collapse-mode="2" max-obj-count="0" z-value="0">
 	<schema name="public"/>
-	<role name="&quot;plutus-admin&quot;"/>
+	<role name="&quot;plutus-indexer&quot;"/>
 	<comment> <![CDATA[For each combo of builtin function, Plutus ledger language and major protocol version selects how many scripts used it.]]> </comment>
 	<position x="780" y="460"/>
 	<definition> <![CDATA[SELECT
@@ -254,7 +254,7 @@ ORDER BY
 <permission>
 	<object name="public.deserialised_scripts" type="table"/>
 	<roles names="&quot;plutus-indexer&quot;"/>
-	<privileges insert="true"/>
+	<privileges select="true" insert="true"/>
 </permission>
 <permission>
 	<object name="public.script_evaluation_events" type="table"/>
@@ -264,7 +264,7 @@ ORDER BY
 <permission>
 	<object name="public.serialised_scripts" type="table"/>
 	<roles names="&quot;plutus-indexer&quot;"/>
-	<privileges insert="true"/>
+	<privileges select="true" insert="true"/>
 </permission>
 <permission>
 	<object name="public.serialised_scripts" type="table"/>
@@ -304,6 +304,11 @@ ORDER BY
 <permission>
 	<object name="public.builtin_version_num_usages" type="view"/>
 	<roles names="&quot;plutus-reader&quot;"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="public.scripts" type="view"/>
+	<roles names="&quot;plutus-indexer&quot;"/>
 	<privileges select="true"/>
 </permission>
 </dbmodel>
