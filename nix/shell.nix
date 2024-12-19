@@ -69,6 +69,14 @@ cabalProject: {
         cabal run materialise-views -- --database-conn-str "$DB_CONN_STRING"
       '';
     };
+
+    evaluate = {
+      description = "Evaluate Plutus Scripts from mainnet";
+      group = "general";
+      exec = ''
+        cabal run evaluate-scripts -- --database-conn-str "$DB_CONN_STRING"
+      '';
+    };
   };
 
   # env = {

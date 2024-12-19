@@ -67,25 +67,6 @@ countResult = \case
   ScriptEvaluationFailure ->
     \metrics -> metrics{countFailures = countFailures metrics + 1}
 
-{-
-
-data ScriptEvaluationEvents = ScriptEvaluationEvents
-  { eventsCostParamsV1 :: Maybe [Int64]
-  , eventsCostParamsV2 :: Maybe [Int64]
-  , eventsEvents       :: NonEmpty ScriptEvaluationEvent
-  }
-
-data ScriptEvaluationEvent
-  = PlutusEvent PlutusLedgerLanguage ScriptEvaluationData ScriptEvaluationResult
-
-data ScriptEvaluationData = ScriptEvaluationData
-  { dataProtocolVersion :: MajorProtocolVersion
-  , dataBudget          :: ExBudget
-  , dataScript          :: SerialisedScript
-  , dataInputs          :: [PLC.Data]
-  }
-
--}
 aggregateEvents :: Metrics -> ScriptEvaluationEvents -> Metrics
 aggregateEvents !metrics ScriptEvaluationEvents{eventsEvents} =
   foldl' aggregateEvent metrics eventsEvents
