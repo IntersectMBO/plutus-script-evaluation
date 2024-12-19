@@ -3,8 +3,8 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.1.4" use-changelog="false" max-obj-count="15"
-	 last-position="0,0" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
+<dbmodel pgmodeler-ver="1.1.5" use-changelog="false" max-obj-count="15"
+	 last-position="430,138" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -207,6 +207,30 @@ GROUP BY
   MAJOR_PROTOCOL_VER
 ORDER BY
   NUM_SCRIPTS DESC]]> </definition>
+</view>
+
+<view name="script_evaluations" layers="0" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="public"/>
+	<role name="&quot;plutus-admin&quot;"/>
+	<position x="1060" y="520"/>
+	<definition> <![CDATA[SELECT
+  SEE.SLOT,
+  SEE.BLOCK,
+  SEE.EVALUATED_SUCCESSFULLY,
+  SEE.EXEC_BUDGET_CPU,
+  SEE.EXEC_BUDGET_MEM,
+  CMP.PARAM_VALUES,
+  SEE.DATUM,
+  SEE.REDEEMER,
+  SEE.SCRIPT_CONTEXT,
+  SS.LEDGER_LANGUAGE,
+  SS.MAJOR_PROTOCOL_VER,
+  SS.SERIALISED
+FROM
+  SCRIPT_EVALUATION_EVENTS AS SEE
+  JOIN SERIALISED_SCRIPTS SS ON SEE.SCRIPT_HASH = SS.HASH
+  JOIN COST_MODEL_PARAMS CMP ON SEE.COST_MODEL_PARAMS = CMP.PK
+]]> </definition>
 </view>
 
 <constraint name="cost_model_params_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
