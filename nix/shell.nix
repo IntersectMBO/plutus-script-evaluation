@@ -16,7 +16,6 @@ cabalProject: {
 
   packages = [
     pkgs.figlet
-    pkgs.adrs
   ];
 
   scripts = {
@@ -86,6 +85,6 @@ cabalProject: {
     fourmolu.enable = true;
     hlint.enable = true;
     editorconfig-checker.enable = true;
-    nixpkgs-fmt.enable = true;
+    nixpkgs-fmt.enable = false;
   };
 }
