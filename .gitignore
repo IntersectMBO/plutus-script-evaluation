@@ -2,5 +2,6 @@ dist-newstyle/
 .pre-commit-config.yaml
 .envrc.local
 .vscode
+.direnv
 dumps
 cabal.project.local
