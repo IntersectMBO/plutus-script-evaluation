@@ -153,8 +153,8 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
           }
 
       ExUnits
-        (fromIntegral -> eeExecBudgetCpu :: Int64)
-        (fromIntegral -> eeExecBudgetMem :: Int64) = pwcExUnits
+        (fromIntegral -> eeExecBudgetMem :: ExMemory)
+        (fromIntegral -> eeExecBudgetCpu :: ExCPU) = pwcExUnits
 
       eeCostModelParams :: Maybe Hash64 =
         hashParamValues cmParamValues
