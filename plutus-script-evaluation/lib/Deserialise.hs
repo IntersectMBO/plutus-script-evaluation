@@ -38,7 +38,7 @@ deserialiseBatch conn insertedOverall = do
   -- It would be too much overhead to process one record at a time, and app
   -- would be too slow (possibly crashing) if we processed all records at once.
   serialisedRecords :: [DB.SerialisedScriptRecord] <-
-    DB.selectSerialisedScriptsToDeserialise conn batchSize
+    DB.selectSerialisedScriptsBatch conn batchSize
   deserialisedRecords <-
     traverse deserialiseScript serialisedRecords
       & either throwIO pure
