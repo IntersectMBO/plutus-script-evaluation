@@ -152,18 +152,15 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
           , ssSerialised
           }
 
-      ExUnits
-        (fromIntegral -> eeExecBudgetCpu :: Int64)
-        (fromIntegral -> eeExecBudgetMem :: Int64) = pwcExUnits
+      eeExecBudgetMem :: Int64 = fromIntegral (exUnitsMem pwcExUnits)
 
-      eeCostModelParams :: Maybe Hash64 =
-        hashParamValues cmParamValues
+      eeExecBudgetCpu :: Int64 = fromIntegral (exUnitsSteps pwcExUnits)
 
-      cmParamValues :: [Int64] =
-        getCostModelParams pwcCostModel
+      eeCostModelParams :: Maybe Hash64 = hashParamValues cmParamValues
 
-      ssMajorProtocolVersion :: Int16 =
-        getVersion pwcProtocolVersion
+      cmParamValues :: [Int64] = getCostModelParams pwcCostModel
+
+      ssMajorProtocolVersion :: Int16 = getVersion pwcProtocolVersion
 
       ssLedgerLanguage :: PlutusLedgerLanguage =
         case isLanguage @l of
