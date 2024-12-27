@@ -1,5 +1,3 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-
 module Evaluate where
 
 import Codec.Serialise (deserialise)
