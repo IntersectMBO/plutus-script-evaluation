@@ -97,13 +97,10 @@ onScriptEvaluationInput MkScriptEvaluationInput{..} budget = do
     Left err -> do
       putStrLn $ "Script evaluation was not successful: " <> show err
     Right (ExBudget cpu mem) -> do
-      putStrLn $
-        "Script evaluation was successful.\nConsumed: "
-          <> show cpu
-          <> ", "
-          <> show mem
-      putStrLn $
+      putStrLn "Script evaluation was successful."
+      putStrLn
         let ExBudget cpu' mem' = seiExBudget
          in "Expected: " <> show cpu' <> ", " <> show mem'
+      putStrLn $ "Consumed: " <> show cpu <> ", " <> show mem
 
   pure budget
