@@ -1,8 +1,7 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-
 module Evaluate where
 
 import Codec.Serialise (deserialise)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Trans.Writer (WriterT (runWriterT))
 import Data.ByteString qualified as BSL
@@ -35,20 +34,23 @@ data ScriptEvaluationInput = MkScriptEvaluationInput
   }
 
 evaluateScripts
-  :: Postgres.Connection
+  :: (MonadFail m, MonadUnliftIO m)
+  => Postgres.Connection
   -- ^ Database connection
   -> a
   -- ^ Initial accumulator
-  -> (ScriptEvaluationInput -> a -> IO a)
+  -> (ScriptEvaluationInput -> a -> m a)
   -- ^ Accumulation function
-  -> IO a
+  -> m a
 evaluateScripts conn initialAccum accumulate =
   Db.withScriptEvaluationEvents conn initialAccum \accum record -> do
     scriptInput <- inputFromRecord record
     accumulate scriptInput accum
 
 inputFromRecord
-  :: (MonadFail m) => Db.ScriptEvaluationRecord -> m ScriptEvaluationInput
+  :: (MonadFail m)
+  => Db.ScriptEvaluationRecord
+  -> m ScriptEvaluationInput
 inputFromRecord MkScriptEvaluationRecord'{..} = do
   let mkEvalCtx f =
         runExceptT (runWriterT f) >>= \case
@@ -97,13 +99,10 @@ onScriptEvaluationInput MkScriptEvaluationInput{..} budget = do
     Left err -> do
       putStrLn $ "Script evaluation was not successful: " <> show err
     Right (ExBudget cpu mem) -> do
-      putStrLn $
-        "Script evaluation was successful.\nConsumed: "
-          <> show cpu
-          <> ", "
-          <> show mem
-      putStrLn $
+      putStrLn "Script evaluation was successful."
+      putStrLn
         let ExBudget cpu' mem' = seiExBudget
          in "Expected: " <> show cpu' <> ", " <> show mem'
+      putStrLn $ "Consumed: " <> show cpu <> ", " <> show mem
 
   pure budget
