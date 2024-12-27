@@ -1,6 +1,7 @@
 module Database.Query where
 
 import Cardano.Slotting.Slot (SlotNo)
+import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
 import Data.Profunctor.Product.Default (Default)
 import Database.Orphans ()
 import Database.PostgreSQL.Simple (Connection)
@@ -92,13 +93,16 @@ selectSerialisedScriptsBatch conn count =
     pure serialised
 
 withScriptEvaluationEvents
-  :: Connection
+  :: (MonadUnliftIO m)
+  => Connection
   -> a
-  -> (a -> ScriptEvaluationRecord -> IO a)
-  -> IO a
+  -> (a -> ScriptEvaluationRecord -> m a)
+  -> m a
 withScriptEvaluationEvents conn a f = do
   let select = selectTable scriptEvaluations
-  runSelectFold conn select a f
+  withRunInIO \runInIO ->
+    runSelectFold conn select a \accum record ->
+      runInIO (f accum record)
 
 insertScriptEvaluationEvents
   :: (Default ToFields EvaluationEventRecord EvaluationEventRecordFields)

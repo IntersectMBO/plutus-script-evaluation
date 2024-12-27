@@ -109,6 +109,7 @@ library
     , string-interpolate                           ^>=0.3
     , text
     , transformers
+    , unliftio-core
     , vector
 
 executable dump-script-events
@@ -157,5 +158,6 @@ executable evaluate-scripts
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , cardano-api  ^>=10.4
+    , cardano-api    ^>=10.4
     , text
+    , unliftio-core
