@@ -156,4 +156,6 @@ executable evaluate-scripts
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
-  build-depends:  cardano-api ^>=10.4
+  build-depends:
+    , cardano-api  ^>=10.4
+    , text
