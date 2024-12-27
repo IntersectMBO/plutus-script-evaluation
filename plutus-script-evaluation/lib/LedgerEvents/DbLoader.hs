@@ -42,10 +42,10 @@ import Data.String.Interpolate (i)
 import Data.Word (Word64)
 import Database (SerialisedScriptRecord' (ssLedgerLanguage))
 import Database qualified as DB
-import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as PostgreSQL
 import FileStorage qualified
 import Path (Abs, Dir, Path)
+import PlutusCore.Evaluation.Machine.ExMemory (ExCPU, ExMemory)
 import PlutusLedgerApi.Common (Data, PlutusLedgerLanguage (..), toData)
 import PlutusLedgerApi.V3 (
   ScriptContext (scriptContextScriptInfo),
@@ -76,15 +76,15 @@ makeEventIndexer checkpointDir conn = do
 
     -- First insert the cost model parameter values
     -- such that script evaluation events can refer them with a FK.
-    numCosts <- Db.insertCostModelValues conn costsRecords
+    numCosts <- DB.insertCostModelValues conn costsRecords
     unless (numCosts == 0) do
       putStrLn [i|Inserted #{numCosts} cost model parameter values.|]
 
-    numScripts <- Db.insertSerialisedScripts conn scriptRecords
+    numScripts <- DB.insertSerialisedScripts conn scriptRecords
     unless (numScripts == 0) do
       putStrLn [i|Inserted #{numScripts} serialised scripts.|]
 
-    numEvents <- Db.insertScriptEvaluationEvents conn scriptEvaluationRecords
+    numEvents <- DB.insertScriptEvaluationEvents conn scriptEvaluationRecords
     unless (numEvents == 0) do
       putStrLn [i|Inserted #{numEvents} script evaluation events.|]
 
@@ -124,7 +124,7 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
     events = MkEventRecords{event, costs, script} : events
      where
       event :: DB.EvaluationEventRecord =
-        Db.MkEvaluationEvent
+        DB.MkEvaluationEventRecord'
           { eeSlotNo
           , eeBlockNo
           , eeEvaluatedSuccessfully
@@ -152,9 +152,9 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
           , ssSerialised
           }
 
-      eeExecBudgetMem :: Int64 = fromIntegral (exUnitsMem pwcExUnits)
+      eeExecBudgetMem :: ExMemory = fromIntegral (exUnitsMem pwcExUnits)
 
-      eeExecBudgetCpu :: Int64 = fromIntegral (exUnitsSteps pwcExUnits)
+      eeExecBudgetCpu :: ExCPU = fromIntegral (exUnitsSteps pwcExUnits)
 
       eeCostModelParams :: Maybe Hash64 = hashParamValues cmParamValues
 

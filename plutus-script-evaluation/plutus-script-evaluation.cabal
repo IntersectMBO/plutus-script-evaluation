@@ -40,10 +40,20 @@ common lang
   ghc-options:
     -O2 -Wall -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
-    -Wredundant-constraints -Wunused-packages
+    -Wredundant-constraints
 
 common deps
   build-depends: base >=4.9 && <5
+
+common deps-exe
+  import:        deps
+  build-depends:
+    , bytestring
+    , optparse-applicative
+    , path
+    , plutus-script-evaluation
+    , postgresql-simple
+    , with-utf8
 
 library
   import:          lang, deps
@@ -52,8 +62,11 @@ library
     Aggregate
     Database
     Database.Orphans
+    Database.Query
+    Database.Schema
     Deserialise
     Dump
+    Evaluate
     FileStorage
     LedgerEvents.DbLoader
     LedgerEvents.FileWriter
@@ -69,14 +82,16 @@ library
     , base16-bytestring
     , base64
     , bytestring
-    , cardano-api                                  ^>=9.3.0.0
+    , cardano-api                                  ^>=10.4
     , cardano-ledger-alonzo
     , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
+    , containers
     , deepseq
     , dlist
     , int-cast
+    , lens
     , mtl
     , murmur-hash                                  ^>=0.1.0.10
     , opaleye
@@ -97,67 +112,50 @@ library
     , vector
 
 executable dump-script-events
-  import:         lang, deps
+  import:         lang, deps-exe
   hs-source-dirs: dump-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
-  build-depends:
-    , cardano-api               ^>=9.3.0.0
-    , optparse-applicative
-    , path
-    , plutus-script-evaluation
-    , with-utf8
+  build-depends:  cardano-api ^>=10.4
 
 executable load-script-events
-  import:         lang, deps
+  import:         lang, deps-exe
   hs-source-dirs: load-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , cardano-api               ^>=9.3.0.0
-    , optparse-applicative
-    , path
-    , plutus-script-evaluation
-    , postgresql-simple
+    , cardano-api  ^>=10.4
     , pretty-show
-    , with-utf8
 
 executable aggregate-script-events
-  import:         lang, deps
+  import:         lang, deps-exe
   hs-source-dirs: aggregate-script-events
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
-  build-depends:
-    , optparse-applicative
-    , path
-    , plutus-script-evaluation
-    , with-utf8
 
 executable deserialise-scripts
-  import:         lang, deps
+  import:         lang, deps-exe
   hs-source-dirs: deserialise-scripts
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
-  build-depends:
-    , bytestring
-    , optparse-applicative
-    , plutus-script-evaluation
-    , postgresql-simple
-    , with-utf8
 
 executable materialise-views
-  import:         lang, deps
+  import:         lang, deps-exe
   hs-source-dirs: materialise-views
   main-is:        Main.hs
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
+
+executable evaluate-scripts
+  import:         lang, deps-exe
+  hs-source-dirs: evaluate-scripts
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:  Options
   build-depends:
-    , bytestring
-    , optparse-applicative
-    , plutus-script-evaluation
-    , postgresql-simple
-    , with-utf8
+    , cardano-api  ^>=10.4
+    , text
