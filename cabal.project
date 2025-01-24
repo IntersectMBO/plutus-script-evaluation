@@ -35,3 +35,15 @@ packages:
 package postgresql-libpq
   flags: +use-pkg-config
 
+
+-- Points to a commit with the verifyEd25519Signature_V2 function
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/plutus
+  tag: c446df611e68feb5f27c474e782dc0ea8164378c 
+  --sha256: sha256-k+xwQHiru1KrWtG+M6YoeIhlntb4VAJuXK2cYHx8Voo=
+  subdir:
+    plutus-tx
+    plutus-core
+    plutus-tx-plugin
+    plutus-ledger-api
