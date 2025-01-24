@@ -104,6 +104,7 @@ library
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
     , postgresql-simple
+    , prettyprinter-configurable
     , product-profunctors
     , serialise
     , some

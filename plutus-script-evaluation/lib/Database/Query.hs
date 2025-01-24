@@ -2,6 +2,7 @@ module Database.Query where
 
 import Cardano.Slotting.Slot (SlotNo)
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
+import Data.Function ((&))
 import Data.Profunctor.Product.Default (Default)
 import Database.Orphans ()
 import Database.PostgreSQL.Simple (Connection)
@@ -11,10 +12,12 @@ import Opaleye (
   Delete (..),
   Insert (Insert, iOnConflict, iReturning, iRows, iTable),
   ToFields,
+  asc,
   doNothing,
   limit,
   maybeFields,
   optional,
+  orderBy,
   rCount,
   runDelete,
   runInsert,
@@ -99,7 +102,9 @@ withScriptEvaluationEvents
   -> (a -> ScriptEvaluationRecord -> m a)
   -> m a
 withScriptEvaluationEvents conn a f = do
-  let select = selectTable scriptEvaluations
+  let select =
+        selectTable scriptEvaluations
+          & orderBy (asc seBlockNo)
   withRunInIO \runInIO ->
     runSelectFold conn select a \accum record ->
       runInIO (f accum record)
