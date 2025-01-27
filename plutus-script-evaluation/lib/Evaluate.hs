@@ -7,6 +7,9 @@ import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Trans.Writer (WriterT (runWriterT))
 import Data.ByteString qualified as BSL
 import Data.ByteString.Short qualified as BSS
+import Data.Text qualified as Text
+import Data.Text.IO qualified as TIO
+import Data.Time.Clock (getCurrentTime)
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as Postgres
 import Database.Schema (ScriptEvaluationRecord' (..))
@@ -27,7 +30,6 @@ import PlutusLedgerApi.Common (
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
-import System.Exit (exitFailure)
 import Text.PrettyBy qualified as Pretty
 
 data ScriptEvaluationInput = MkScriptEvaluationInput
@@ -40,6 +42,26 @@ data ScriptEvaluationInput = MkScriptEvaluationInput
   , seiEvaluationSuccess :: Bool
   , seiBlock :: BlockNo
   }
+
+renderScriptEvaluationInput :: ScriptEvaluationInput -> String
+renderScriptEvaluationInput MkScriptEvaluationInput{..} =
+  "\n\nseiPlutusLedgerLanguage = "
+    ++ show seiPlutusLedgerLanguage
+    ++ "\n\nseiMajorProtocolVersion = "
+    ++ show seiMajorProtocolVersion
+    ++ "\n\nseiEvaluationContext = <evaluation context>"
+    ++ "\n\nseiExBudget = "
+    ++ show seiExBudget
+    ++ "\n\nseiEvaluationSuccess = "
+    ++ show seiEvaluationSuccess
+    ++ "\n\nseiBlock = "
+    ++ show seiBlock
+    ++ "\n\nseiData = "
+    ++ Pretty.display seiData
+    ++ "\n\nseiScript = "
+    ++ ( let ScriptNamedDeBruijn uplc = deserialisedScript seiScript
+          in Pretty.display uplc
+       )
 
 evaluateScripts
   :: (MonadFail m, MonadUnliftIO m)
@@ -91,8 +113,8 @@ inputFromRecord MkScriptEvaluationRecord'{..} = do
       , seiBlock = seBlockNo
       }
 
-onScriptEvaluationInput :: ScriptEvaluationInput -> ExBudget -> IO ExBudget
-onScriptEvaluationInput MkScriptEvaluationInput{..} budget = do
+onScriptEvaluationInput :: ScriptEvaluationInput -> () -> IO ()
+onScriptEvaluationInput input@MkScriptEvaluationInput{..} _accum = do
   let
     (_logOutput, evaluationResult) =
       evaluateScriptRestricting
@@ -100,47 +122,54 @@ onScriptEvaluationInput MkScriptEvaluationInput{..} budget = do
         seiMajorProtocolVersion
         Quiet
         seiEvaluationContext
-        (ExBudget maxBound maxBound)
+        (ExBudget maxBound maxBound) -- will check the budget separately
         seiScript
         seiData
 
+  let budgetExceeded (ExBudget cpu mem) =
+        let ExBudget cpuPaidFor memPaidFor = seiExBudget
+         in cpu > cpuPaidFor || mem > memPaidFor
+
   let evaluationSuccess =
-        either (const False) (const True) evaluationResult
+        either (const False) (not . budgetExceeded) evaluationResult
 
   print seiBlock
 
   when (evaluationSuccess /= seiEvaluationSuccess) do
-    putStrLn $
-      "Script evaluation result ("
-        ++ show evaluationSuccess
-        ++ ") does not match the expected result ("
-        ++ show seiEvaluationSuccess
-        ++ "): "
-    let ScriptNamedDeBruijn uplc = deserialisedScript seiScript
-     in putStrLn $ Pretty.display uplc
+    let msg =
+          "Script evaluation result ("
+            ++ show evaluationSuccess
+            ++ ") does not match the recorded result ("
+            ++ show seiEvaluationSuccess
+            ++ ")"
+
+    nonce <- getCurrentTime
+    let logFile = show seiBlock ++ "_" ++ show nonce ++ ".log"
+
+    putStrLn msg
+    putStrLn $ "Writing log to " ++ logFile
+
+    TIO.writeFile logFile $
+      Text.pack msg
+        <> "\n\nEvaluation result:\n"
+        <> Text.pack (show evaluationResult)
+        <> "\n\nScript evaluation inputs:\n"
+        <> Text.pack (renderScriptEvaluationInput input)
 
   case evaluationResult of
     Left err ->
       putStrLn $ "Script evaluation was not successful: " <> show err
-    Right (ExBudget cpu mem) -> do
-      let ExBudget cpu' mem' = seiExBudget
-      if cpu > cpu' || mem > mem'
+    Right spentExBudget -> do
+      if budgetExceeded spentExBudget
         then do
           putStrLn "Budget exceeded!"
-          putStrLn $ "Paid for: " <> show cpu' <> ", " <> show mem'
-          putStrLn $ "Consumed: " <> show cpu <> ", " <> show mem
-          exitFailure
+          putStrLn $ "Paid for: " <> show seiExBudget
+          putStrLn $ "Consumed: " <> show spentExBudget
         else
-          if cpu == cpu' && mem == mem'
+          if seiExBudget == spentExBudget
             then do
-              putStrLn $
-                "Budget matches exactly: "
-                  <> show cpu
-                  <> ", "
-                  <> show mem
+              putStrLn $ "Budget matches exactly: " <> show spentExBudget
             else do
               putStrLn "Budget is sufficient:"
-              putStrLn $ "Paid for: " <> show cpu' <> ", " <> show mem'
-              putStrLn $ "Consumed: " <> show cpu <> ", " <> show mem
-
-  pure budget
+              putStrLn $ "Paid for: " <> show seiExBudget
+              putStrLn $ "Consumed: " <> show spentExBudget

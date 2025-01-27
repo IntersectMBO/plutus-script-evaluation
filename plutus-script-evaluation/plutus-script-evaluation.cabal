@@ -110,6 +110,7 @@ library
     , some
     , string-interpolate                           ^>=0.3
     , text
+    , time
     , transformers
     , unliftio-core
     , vector
