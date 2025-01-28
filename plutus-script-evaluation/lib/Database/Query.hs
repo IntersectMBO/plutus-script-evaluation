@@ -1,8 +1,8 @@
 module Database.Query where
 
+import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.Slot (SlotNo)
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
-import Data.Function ((&))
 import Data.Profunctor.Product.Default (Default)
 import Database.Orphans ()
 import Database.PostgreSQL.Simple (Connection)
@@ -29,6 +29,7 @@ import Opaleye (
   (.==),
   (.>=),
  )
+import Opaleye.Internal.Column (SqlNum (pgFromInteger))
 
 insertCostModelValues
   :: (Default ToFields CostModelValuesRecord CostModelValuesRecordFields)
@@ -98,13 +99,17 @@ selectSerialisedScriptsBatch conn count =
 withScriptEvaluationEvents
   :: (MonadUnliftIO m)
   => Connection
+  -> BlockNo
   -> a
   -> (a -> ScriptEvaluationRecord -> m a)
   -> m a
-withScriptEvaluationEvents conn a f = do
-  let select =
-        selectTable scriptEvaluations
-          & orderBy (asc seBlockNo)
+withScriptEvaluationEvents conn blockNo a f = do
+  let startBlock = pgFromInteger (fromIntegral (unBlockNo blockNo))
+      select = orderBy (asc seBlockNo) do
+        res@(MkScriptEvaluationRecord' _slot block _ _ _ _ _ _ _ _ _ _) <-
+          selectTable scriptEvaluations
+        where_ (block .>= startBlock)
+        pure res
   withRunInIO \runInIO ->
     runSelectFold conn select a \accum record ->
       runInIO (f accum record)

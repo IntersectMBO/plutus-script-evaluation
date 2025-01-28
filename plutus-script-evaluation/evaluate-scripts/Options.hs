@@ -8,10 +8,14 @@ module Options (
 )
 where
 
+import Cardano.Slotting.Block (BlockNo (BlockNo))
 import Data.ByteString (ByteString)
 import Options.Applicative qualified as O
 
-newtype Options = Options {optsDatabaseConnStr :: ByteString}
+data Options = Options
+  { optsDatabaseConnStr :: ByteString
+  , startBlock :: BlockNo
+  }
   deriving (Show)
 
 options :: O.Parser Options
@@ -25,6 +29,15 @@ options = do
               "Database connection string, see \
               \https://www.postgresql.org\
               \/docs/current/libpq-connect.html#LIBPQ-CONNSTRING"
+          ]
+      )
+  startBlock <-
+    O.option
+      (O.maybeReader (Just . BlockNo . read))
+      ( mconcat
+          [ O.long "start-block"
+          , O.metavar "BLOCK_NO"
+          , O.help "Block number to start from"
           ]
       )
   pure Options{..}

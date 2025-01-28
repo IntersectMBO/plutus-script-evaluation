@@ -1,12 +1,15 @@
 module Evaluate where
 
+import Cardano.Slotting.Block (unBlockNo)
 import Codec.Serialise (deserialise)
+import Control.Concurrent (getNumCapabilities)
 import Control.Monad (when)
 import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Trans.Writer (WriterT (runWriterT))
 import Data.ByteString qualified as BSL
 import Data.ByteString.Short qualified as BSS
+import Data.Either (isRight)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock (getCurrentTime)
@@ -31,6 +34,8 @@ import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
 import Text.PrettyBy qualified as Pretty
+import UnliftIO (IORef, atomicModifyIORef', liftIO, newIORef, readIORef)
+import UnliftIO.Concurrent (forkFinally, threadDelay)
 
 data ScriptEvaluationInput = MkScriptEvaluationInput
   { seiPlutusLedgerLanguage :: PlutusLedgerLanguage
@@ -63,19 +68,48 @@ renderScriptEvaluationInput MkScriptEvaluationInput{..} =
           in Pretty.display uplc
        )
 
-evaluateScripts
+accumulateScripts
   :: (MonadFail m, MonadUnliftIO m)
   => Postgres.Connection
   -- ^ Database connection
+  -> BlockNo
+  -- ^ Block number to start from
   -> a
   -- ^ Initial accumulator
   -> (ScriptEvaluationInput -> a -> m a)
   -- ^ Accumulation function
   -> m a
-evaluateScripts conn initialAccum accumulate =
-  Db.withScriptEvaluationEvents conn initialAccum \accum record -> do
+accumulateScripts conn startBlock initialAccum accumulate =
+  Db.withScriptEvaluationEvents conn startBlock initialAccum \accum record -> do
     scriptInput <- inputFromRecord record
     accumulate scriptInput accum
+
+evaluateScripts
+  :: forall m
+   . (MonadFail m, MonadUnliftIO m)
+  => Postgres.Connection
+  -- ^ Database connection
+  -> BlockNo
+  -- ^ Block number to start from
+  -> (ScriptEvaluationInput -> m ())
+  -- ^ Callback
+  -> m ()
+evaluateScripts conn startBlock callback = do
+  maxThreads <- liftIO getNumCapabilities
+  threadCounter <- newIORef 0
+  Db.withScriptEvaluationEvents conn startBlock () \_unit record -> do
+    waitForAFreeThread maxThreads threadCounter
+    atomicModifyIORef' threadCounter \n -> (n + 1, ())
+    _threadId <- forkFinally (callback =<< inputFromRecord record) \_ ->
+      atomicModifyIORef' threadCounter \n -> (n - 1, ())
+    pure ()
+ where
+  waitForAFreeThread :: Int -> IORef Int -> m ()
+  waitForAFreeThread maxThreads counter = do
+    threadCount <- readIORef counter
+    when (threadCount >= maxThreads) do
+      threadDelay 60_000 -- wait for 60ms
+      waitForAFreeThread maxThreads counter
 
 inputFromRecord
   :: (MonadFail m)
@@ -113,8 +147,8 @@ inputFromRecord MkScriptEvaluationRecord'{..} = do
       , seiBlock = seBlockNo
       }
 
-onScriptEvaluationInput :: ScriptEvaluationInput -> () -> IO ()
-onScriptEvaluationInput input@MkScriptEvaluationInput{..} _accum = do
+onScriptEvaluationInput :: ScriptEvaluationInput -> IO ()
+onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
   let
     (_logOutput, evaluationResult) =
       evaluateScriptRestricting
@@ -122,18 +156,13 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} _accum = do
         seiMajorProtocolVersion
         Quiet
         seiEvaluationContext
-        (ExBudget maxBound maxBound) -- will check the budget separately
+        seiExBudget
         seiScript
         seiData
 
-  let budgetExceeded (ExBudget cpu mem) =
-        let ExBudget cpuPaidFor memPaidFor = seiExBudget
-         in cpu > cpuPaidFor || mem > memPaidFor
-
-  let evaluationSuccess =
-        either (const False) (not . budgetExceeded) evaluationResult
-
   print seiBlock
+
+  let evaluationSuccess = isRight evaluationResult
 
   when (evaluationSuccess /= seiEvaluationSuccess) do
     let msg =
@@ -142,34 +171,18 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} _accum = do
             ++ ") does not match the recorded result ("
             ++ show seiEvaluationSuccess
             ++ ")"
+            ++ "\n\nEvaluation result:\n"
+            ++ show evaluationResult
+            ++ "\n\nScript evaluation inputs:\n"
+            ++ renderScriptEvaluationInput input
+            ++ "\n\n"
+    putStr msg
 
     nonce <- getCurrentTime
-    let logFile = show seiBlock ++ "_" ++ show nonce ++ ".log"
-
-    putStrLn msg
+    let logFile = show (unBlockNo seiBlock) ++ "_" ++ show nonce ++ ".log"
     putStrLn $ "Writing log to " ++ logFile
-
-    TIO.writeFile logFile $
-      Text.pack msg
-        <> "\n\nEvaluation result:\n"
-        <> Text.pack (show evaluationResult)
-        <> "\n\nScript evaluation inputs:\n"
-        <> Text.pack (renderScriptEvaluationInput input)
+    TIO.writeFile logFile (Text.pack msg)
 
   case evaluationResult of
-    Left err ->
-      putStrLn $ "Script evaluation was not successful: " <> show err
-    Right spentExBudget -> do
-      if budgetExceeded spentExBudget
-        then do
-          putStrLn "Budget exceeded!"
-          putStrLn $ "Paid for: " <> show seiExBudget
-          putStrLn $ "Consumed: " <> show spentExBudget
-        else
-          if seiExBudget == spentExBudget
-            then do
-              putStrLn $ "Budget matches exactly: " <> show spentExBudget
-            else do
-              putStrLn "Budget is sufficient:"
-              putStrLn $ "Paid for: " <> show seiExBudget
-              putStrLn $ "Consumed: " <> show spentExBudget
+    Right _spentExBudget -> pure ()
+    Left err -> putStrLn $ "Script evaluation was not successful: " <> show err

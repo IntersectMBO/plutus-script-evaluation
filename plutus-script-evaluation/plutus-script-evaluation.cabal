@@ -112,6 +112,7 @@ library
     , text
     , time
     , transformers
+    , unliftio
     , unliftio-core
     , vector
 
@@ -158,9 +159,10 @@ executable evaluate-scripts
   import:         lang, deps-exe
   hs-source-dirs: evaluate-scripts
   main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
+  ghc-options:    -threaded -with-rtsopts=-N
   other-modules:  Options
   build-depends:
-    , cardano-api    ^>=10.4
+    , cardano-api       ^>=10.4
+    , cardano-slotting
     , text
     , unliftio-core
