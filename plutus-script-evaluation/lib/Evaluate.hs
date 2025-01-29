@@ -108,7 +108,7 @@ evaluateScripts conn startBlock callback = do
   waitForAFreeThread maxThreads counter = do
     threadCount <- readIORef counter
     when (threadCount >= maxThreads) do
-      threadDelay 60_000 -- wait for 60ms
+      threadDelay 1_000 -- wait for 1ms
       waitForAFreeThread maxThreads counter
 
 inputFromRecord
