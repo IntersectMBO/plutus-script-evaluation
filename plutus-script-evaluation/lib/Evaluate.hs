@@ -160,7 +160,8 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
         seiScript
         seiData
 
-  print seiBlock
+  let b = unBlockNo seiBlock
+  when (b `mod` 100 == 0) (print b)
 
   let evaluationSuccess = isRight evaluationResult
 
