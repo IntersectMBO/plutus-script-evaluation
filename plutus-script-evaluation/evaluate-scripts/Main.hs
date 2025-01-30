@@ -1,3 +1,8 @@
+{- | This module contains the main entry point
+into the program which CEK-evaluates scripts using
+the information recorded in the database in a
+streaming fashion.
+-}
 module Main where
 
 import Control.Exception (bracket, catch)

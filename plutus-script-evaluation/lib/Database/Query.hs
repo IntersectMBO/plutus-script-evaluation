@@ -106,9 +106,8 @@ withScriptEvaluationEvents
 withScriptEvaluationEvents conn blockNo a f = do
   let startBlock = pgFromInteger (fromIntegral (unBlockNo blockNo))
       select = orderBy (asc seBlockNo) do
-        res@(MkScriptEvaluationRecord' _slot block _ _ _ _ _ _ _ _ _ _) <-
-          selectTable scriptEvaluations
-        where_ (block .>= startBlock)
+        res <- selectTable scriptEvaluations
+        where_ (seBlockNo res .>= startBlock)
         pure res
   withRunInIO \runInIO ->
     runSelectFold conn select a \accum record ->
