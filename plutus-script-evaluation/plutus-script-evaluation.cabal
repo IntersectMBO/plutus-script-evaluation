@@ -87,6 +87,7 @@ library
     , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
+    , cborg
     , containers
     , deepseq
     , dlist

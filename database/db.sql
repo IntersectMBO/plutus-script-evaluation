@@ -1,5 +1,5 @@
 -- Database generated with pgModeler (PostgreSQL Database Modeler).
--- pgModeler version: 1.1.4
+-- pgModeler version: 1.1.5
 -- PostgreSQL version: 16.0
 -- Project Site: pgmodeler.io
 -- Model Author: ---
@@ -40,8 +40,10 @@ SET check_function_bodies = false;
 -- object: public.script_evaluation_events | type: TABLE --
 -- DROP TABLE IF EXISTS public.script_evaluation_events CASCADE;
 CREATE TABLE public.script_evaluation_events (
+	pk bigint NOT NULL GENERATED ALWAYS AS IDENTITY ,
 	slot bigint NOT NULL,
 	block bigint NOT NULL,
+	major_protocol_version smallint NOT NULL,
 	evaluated_successfully bool NOT NULL,
 	exec_budget_cpu bigint NOT NULL,
 	exec_budget_mem bigint NOT NULL,
@@ -49,8 +51,8 @@ CREATE TABLE public.script_evaluation_events (
 	datum bytea,
 	redeemer bytea,
 	script_context bytea NOT NULL,
-	cost_model_params bigint NOT NULL
-
+	cost_model_params bigint NOT NULL,
+	CONSTRAINT script_evaluation_events_pk PRIMARY KEY (pk)
 );
 -- ddl-end --
 COMMENT ON COLUMN public.script_evaluation_events.slot IS E'Absolute Slot Number';
@@ -84,7 +86,6 @@ ALTER TABLE public.cost_model_params OWNER TO "plutus-admin";
 CREATE TABLE public.serialised_scripts (
 	hash bytea NOT NULL,
 	ledger_language smallint NOT NULL,
-	major_protocol_ver smallint NOT NULL,
 	serialised bytea NOT NULL,
 	CONSTRAINT serialised_scripts_pk PRIMARY KEY (hash)
 );
@@ -107,7 +108,7 @@ ALTER TABLE public.deserialised_scripts OWNER TO "plutus-admin";
 -- DROP VIEW IF EXISTS public.scripts CASCADE;
 CREATE VIEW public.scripts
 AS 
-select ds.hash, ss.ledger_language, ss.major_protocol_ver, ds.deserialised
+select ds.hash, ss.ledger_language, ds.deserialised
 from deserialised_scripts as ds 
 join serialised_scripts as ss on ds.hash = ss.hash;
 -- ddl-end --
@@ -125,7 +126,7 @@ CREATE FUNCTION public.jsonb_array_to_text_array (IN _js jsonb)
 	PARALLEL SAFE
 	COST 100
 	AS $$
-RETURN ARRAY(SELECT jsonb_array_elements_text(_js) AS jsonb_array_elements_text);
+SELECT ARRAY(SELECT jsonb_array_elements_text(_js) AS jsonb_array_elements_text);
 $$;
 -- ddl-end --
 ALTER FUNCTION public.jsonb_array_to_text_array(jsonb) OWNER TO "plutus-admin";
@@ -145,14 +146,12 @@ SELECT
     )
   ) AS BUILTIN,
   LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER,
   COUNT(*) AS NUM_USAGES
 FROM
   SCRIPTS
 GROUP BY
   BUILTIN,
-  LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER
+  LEDGER_LANGUAGE
 ORDER BY
   NUM_USAGES DESC;
 -- ddl-end --
@@ -175,20 +174,43 @@ SELECT
     )
   ) AS BUILTIN,
   LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER,
   COUNT(DISTINCT HASH) AS NUM_SCRIPTS
 FROM
   SCRIPTS
 GROUP BY
   BUILTIN,
-  LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER
+  LEDGER_LANGUAGE
 ORDER BY
   NUM_SCRIPTS DESC;
 -- ddl-end --
 COMMENT ON MATERIALIZED VIEW public.builtin_version_num_scripts IS E'For each combo of builtin function, Plutus ledger language and major protocol version selects how many scripts used it.';
 -- ddl-end --
 ALTER MATERIALIZED VIEW public.builtin_version_num_scripts OWNER TO "plutus-indexer";
+-- ddl-end --
+
+-- object: public.script_evaluations | type: VIEW --
+-- DROP VIEW IF EXISTS public.script_evaluations CASCADE;
+CREATE VIEW public.script_evaluations
+AS 
+SELECT
+  SEE.SLOT,
+  SEE.BLOCK,
+  SEE.MAJOR_PROTOCOL_VERSION,
+  SEE.EVALUATED_SUCCESSFULLY,
+  SEE.EXEC_BUDGET_CPU,
+  SEE.EXEC_BUDGET_MEM,
+  CMP.PARAM_VALUES AS COST_MODEL_PARAM_VALUES,
+  SEE.DATUM,
+  SEE.REDEEMER,
+  SEE.SCRIPT_CONTEXT,
+  SS.LEDGER_LANGUAGE,
+  SS.SERIALISED
+FROM
+  SCRIPT_EVALUATION_EVENTS AS SEE
+  JOIN SERIALISED_SCRIPTS SS ON SEE.SCRIPT_HASH = SS.HASH
+  JOIN COST_MODEL_PARAMS CMP ON SEE.COST_MODEL_PARAMS = CMP.PK;
+-- ddl-end --
+ALTER VIEW public.script_evaluations OWNER TO "plutus-admin";
 -- ddl-end --
 
 -- object: cost_model_params_fk | type: CONSTRAINT --
@@ -288,6 +310,18 @@ GRANT SELECT
 GRANT SELECT
    ON TABLE public.scripts
    TO "plutus-indexer";
+-- ddl-end --
+
+-- object: grant_r_9fddb7f795 | type: PERMISSION --
+GRANT SELECT
+   ON TABLE public.script_evaluations
+   TO "plutus-reader";
+-- ddl-end --
+
+-- object: grant_r_e6b216ebea | type: PERMISSION --
+GRANT SELECT
+   ON TABLE public.script_evaluations
+   TO "plutus-admin";
 -- ddl-end --
 
 

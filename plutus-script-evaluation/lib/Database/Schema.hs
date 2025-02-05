@@ -7,7 +7,7 @@ import Cardano.Slotting.Slot (SlotNo)
 import Data.Aeson qualified as Json
 import Data.ByteString (ByteString)
 import Data.Digest.Murmur64 (Hash64)
-import Data.Int (Int16, Int64)
+import Data.Int (Int64)
 import Data.Profunctor.Product.Default (Default)
 import Data.Profunctor.Product.TH (makeAdaptorAndInstanceInferrable)
 import Database.Orphans ()
@@ -25,6 +25,7 @@ import Opaleye (
   SqlJsonb,
   Table,
   Unpackspec,
+  optionalTableField,
   showSql,
   table,
  )
@@ -58,11 +59,10 @@ type CostModelValuesRecordFields =
 --------------------------------------------------------------------------------
 -- serialised_scripts ----------------------------------------------------------
 
-data SerialisedScriptRecord' hash64 ledgerLang majorProtoVer serialised
+data SerialisedScriptRecord' hash64 ledgerLang serialised
   = MkSerialisedScriptRecord
   { ssHash :: hash64
   , ssLedgerLanguage :: ledgerLang
-  , ssMajorProtocolVersion :: majorProtoVer
   , ssSerialised :: serialised
   }
   deriving (Show, Eq)
@@ -71,14 +71,12 @@ type SerialisedScriptRecord =
   SerialisedScriptRecord'
     ByteString -- hash
     PlutusLedgerLanguage -- ledger_language
-    Int16 -- major_protocol_version
     ByteString -- serialised
 
 type SerialisedScriptRecordFields =
   SerialisedScriptRecord'
     (Field SqlBytea) -- hash
     (Field SqlInt2) -- ledger_language
-    (Field SqlInt2) -- major_protocol_version
     (Field SqlBytea) -- serialised
 
 --------------------------------------------------------------------------------
@@ -105,8 +103,10 @@ type DeserialisedScriptRecordFields =
 
 data
   EvaluationEventRecord'
+    pk
     slotNo
     blockNo
+    majorProtocolVersion
     evaluatedSuccessfully
     budgetCpu
     budgetMem
@@ -116,8 +116,10 @@ data
     scriptContext
     costModel
   = MkEvaluationEventRecord'
-  { eeSlotNo :: slotNo
+  { eePk :: pk
+  , eeSlotNo :: slotNo
   , eeBlockNo :: blockNo
+  , eeMajorProtocolVersion :: majorProtocolVersion
   , eeEvaluatedSuccessfully :: evaluatedSuccessfully
   , eeExecBudgetCpu :: budgetCpu
   , eeExecBudgetMem :: budgetMem
@@ -131,8 +133,10 @@ data
 
 type EvaluationEventRecord =
   EvaluationEventRecord'
+    (Maybe Int64) -- pk
     SlotNo -- slot
     BlockNo -- block
+    MajorProtocolVersion -- major_protocol_version
     Bool -- evaluated_successfully
     ExCPU -- exec_budget_cpu
     ExMemory -- exec_budget_mem
@@ -142,10 +146,27 @@ type EvaluationEventRecord =
     ByteString -- script_context
     (Maybe Hash64) -- cost_model_params
 
-type EvaluationEventRecordFields =
+type WriteEvaluationEventRecordFields =
   EvaluationEventRecord'
-    (Field SqlInt8) -- block
+    (Maybe (Field SqlInt8)) -- pk
     (Field SqlInt8) -- slot
+    (Field SqlInt8) -- block
+    (Field SqlInt2) -- major_protocol_version
+    (Field SqlBool) -- evaluated_successfully
+    (Field SqlInt8) -- exec_budget_cpu
+    (Field SqlInt8) -- exec_budget_mem
+    (Field SqlBytea) -- script_hash
+    (FieldNullable SqlBytea) -- datum
+    (FieldNullable SqlBytea) -- redeemer
+    (Field SqlBytea) -- script_context
+    (FieldNullable SqlInt8) -- cost_model_params
+
+type ReadEvaluationEventRecordFields =
+  EvaluationEventRecord'
+    (Field SqlInt8) -- pk
+    (Field SqlInt8) -- slot
+    (Field SqlInt8) -- block
+    (Field SqlInt2) -- major_protocol_version
     (Field SqlBool) -- evaluated_successfully
     (Field SqlInt8) -- exec_budget_cpu
     (Field SqlInt8) -- exec_budget_mem
@@ -160,8 +181,11 @@ type EvaluationEventRecordFields =
 
 data
   ScriptEvaluationRecord'
+    pk
     slotNo
     blockNo
+    ledgerLang
+    majorProtoVer
     evaluatedSuccessfully
     budgetCpu
     budgetMem
@@ -170,11 +194,12 @@ data
     redeemer
     scriptContext
     costModel
-    majorProtoVer
-    ledgerLang
   = MkScriptEvaluationRecord'
-  { seSlotNo :: slotNo
+  { sePk :: pk
+  , seSlotNo :: slotNo
   , seBlockNo :: blockNo
+  , seLedgerLanguage :: ledgerLang
+  , seMajorProtocolVersion :: majorProtoVer
   , seEvaluatedSuccessfully :: evaluatedSuccessfully
   , seExecBudgetCpu :: budgetCpu
   , seExecBudgetMem :: budgetMem
@@ -183,15 +208,16 @@ data
   , seRedeemer :: redeemer
   , seScriptContext :: scriptContext
   , seCostModelParams :: costModel
-  , seMajorProtocolVersion :: majorProtoVer
-  , seLedgerLanguage :: ledgerLang
   }
   deriving (Show, Eq)
 
 type ScriptEvaluationRecord =
   ScriptEvaluationRecord'
+    (Maybe Int64) -- pk
     SlotNo -- slot
     BlockNo -- block
+    PlutusLedgerLanguage -- ledger_language
+    MajorProtocolVersion -- major_protocol_version
     Bool -- evaluated_successfully
     ExCPU -- exec_budget_cpu
     ExMemory -- exec_budget_mem
@@ -200,13 +226,14 @@ type ScriptEvaluationRecord =
     (Maybe ByteString) -- redeemer
     ByteString -- script_context
     [Int64] -- cost_model_params
-    MajorProtocolVersion -- major_protocol_version
-    PlutusLedgerLanguage -- ledger_language
 
 type ScriptEvaluationRecordFields =
   ScriptEvaluationRecord'
-    (Field SqlInt8) -- block
+    (FieldNullable SqlInt8) -- pk
     (Field SqlInt8) -- slot
+    (Field SqlInt8) -- block
+    (Field SqlInt2) -- ledger_language
+    (Field SqlInt2) -- major_protocol_version
     (Field SqlBool) -- evaluated_successfully
     (Field SqlInt4) -- exec_budget_cpu
     (Field SqlInt4) -- exec_budget_mem
@@ -215,8 +242,6 @@ type ScriptEvaluationRecordFields =
     (FieldNullable SqlBytea) -- redeemer
     (Field SqlBytea) -- script_context
     (Field (SqlArray SqlInt8)) -- cost_model_params
-    (Field SqlInt2) -- major_protocol_version
-    (Field SqlInt2) -- ledger_language
 
 --------------------------------------------------------------------------------
 -- TH Splices ------------------------------------------------------------------
@@ -232,13 +257,18 @@ makeAdaptorAndInstanceInferrable "pDeserialisedScript" ''DeserialisedScriptRecor
 
 type DbTable f = Table f f
 
-scriptEvaluationEvents :: DbTable EvaluationEventRecordFields
+scriptEvaluationEvents
+  :: Table
+      WriteEvaluationEventRecordFields
+      ReadEvaluationEventRecordFields
 scriptEvaluationEvents =
   table "script_evaluation_events" $
     pEvaluationEvent
       MkEvaluationEventRecord'
-        { eeSlotNo = tableField "slot"
+        { eePk = optionalTableField "pk"
+        , eeSlotNo = tableField "slot"
         , eeBlockNo = tableField "block"
+        , eeMajorProtocolVersion = tableField "major_protocol_version"
         , eeEvaluatedSuccessfully = tableField "evaluated_successfully"
         , eeExecBudgetCpu = tableField "exec_budget_cpu"
         , eeExecBudgetMem = tableField "exec_budget_mem"
@@ -254,8 +284,11 @@ scriptEvaluations =
   table "script_evaluations" $
     pScriptEvaluation
       MkScriptEvaluationRecord'
-        { seSlotNo = tableField "slot"
+        { sePk = tableField "pk"
+        , seSlotNo = tableField "slot"
         , seBlockNo = tableField "block"
+        , seLedgerLanguage = tableField "ledger_language"
+        , seMajorProtocolVersion = tableField "major_protocol_version"
         , seEvaluatedSuccessfully = tableField "evaluated_successfully"
         , seExecBudgetCpu = tableField "exec_budget_cpu"
         , seExecBudgetMem = tableField "exec_budget_mem"
@@ -264,8 +297,6 @@ scriptEvaluations =
         , seRedeemer = tableField "redeemer"
         , seScriptContext = tableField "script_context"
         , seCostModelParams = tableField "cost_model_param_values"
-        , seMajorProtocolVersion = tableField "major_protocol_ver"
-        , seLedgerLanguage = tableField "ledger_language"
         }
 
 costModelValues :: DbTable CostModelValuesRecordFields
@@ -284,7 +315,6 @@ serialisedScripts =
       MkSerialisedScriptRecord
         { ssHash = tableField "hash"
         , ssLedgerLanguage = tableField "ledger_language"
-        , ssMajorProtocolVersion = tableField "major_protocol_ver"
         , ssSerialised = tableField "serialised"
         }
 
