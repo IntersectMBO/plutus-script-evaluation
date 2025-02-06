@@ -81,7 +81,7 @@ selectSerialisedScriptsBatch
   :: Connection -> Natural -> IO [SerialisedScriptRecord]
 selectSerialisedScriptsBatch conn count =
   runSelect conn $ limit (fromIntegral count) do
-    serialised@(MkSerialisedScriptRecord hash _ _ _) <-
+    serialised@(MkSerialisedScriptRecord hash _ledgerLang _script) <-
       selectTable serialisedScripts
     maybeDeserialised <- optional do
       row@(MkDeserialisedScriptRecord dsHash _) <-
@@ -101,7 +101,7 @@ withScriptEvaluationEvents conn a f = do
   runSelectFold conn select a f
 
 insertScriptEvaluationEvents
-  :: (Default ToFields EvaluationEventRecord EvaluationEventRecordFields)
+  :: (Default ToFields EvaluationEventRecord WriteEvaluationEventRecordFields)
   => Connection
   -> [EvaluationEventRecord]
   -> IO Int

@@ -1,15 +1,16 @@
 module Deserialise where
 
+import Codec.CBOR.Read qualified as CBOR
+import Codec.Extras.SerialiseViaFlat (decodeViaFlatWith, readDeserialiseFailureInfo)
 import Control.Exception (throwIO)
 import Control.Monad (unless)
-import Control.Monad.Error.Class (MonadError)
+import Control.Monad.Error.Class (MonadError, throwError)
 import Data.Aeson (toJSON, (.=))
 import Data.Aeson qualified as Json
 import Data.Base64.Types qualified as Base64
+import Data.ByteString qualified as BS
 import Data.ByteString.Base64 qualified as Base64
-import Data.ByteString.Short qualified as BS
 import Data.Function ((&))
-import Data.IntCast (intCast)
 import Data.Some (withSome)
 import Data.String.Interpolate (i)
 import Data.Vector qualified as Vector
@@ -20,7 +21,7 @@ import PlutusCore (DefaultUni (..), ValueOf (..))
 import PlutusCore.Default (noMoreTypeFunctions)
 import PlutusCore.Default qualified as U
 import PlutusCore.Pretty (pretty, render)
-import PlutusLedgerApi.Common (Data (..), ScriptNamedDeBruijn (..))
+import PlutusLedgerApi.Common (Data (..), ScriptDecodeError (..))
 import PlutusLedgerApi.Common qualified as P
 import PlutusPrelude (showText)
 import UntypedPlutusCore qualified as U
@@ -56,14 +57,18 @@ deserialiseScript
   => DB.SerialisedScriptRecord
   -> m DB.DeserialisedScriptRecord
 deserialiseScript
-  ( DB.MkSerialisedScriptRecord
-      hash
-      ledgerLang
-      (P.MajorProtocolVersion . intCast -> majorProtocolVer)
-      (BS.toShort -> serialised)
-    ) = do
-    scriptForEval <- P.deserialiseScript ledgerLang majorProtocolVer serialised
-    let ScriptNamedDeBruijn uplc = P.deserialisedScript scriptForEval
+  (DB.MkSerialisedScriptRecord hash _ledgerLang serialised) = do
+    let builtinPredicate _fun = Nothing -- Don't check builtins compatibility
+        decoder = decodeViaFlatWith (U.decodeProgram builtinPredicate)
+    uplc <-
+      case CBOR.deserialiseFromBytes decoder (BS.fromStrict serialised) of
+        Left err ->
+          throwError $ CBORDeserialiseError $ readDeserialiseFailureInfo err
+        Right (remainder, _uplc)
+          | remainder /= mempty ->
+              throwError $ RemainderError remainder
+        Right (_rest, uplc) ->
+          pure uplc
     pure . DB.MkDeserialisedScriptRecord hash . termToJson $ U._progTerm uplc
 
 termToJson :: U.Term U.NamedDeBruijn U.DefaultUni U.DefaultFun () -> Json.Value

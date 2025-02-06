@@ -4,7 +4,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
 <dbmodel pgmodeler-ver="1.1.5" use-changelog="false" max-obj-count="18"
-	 last-position="147,221" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
+	 last-position="257,118" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -32,10 +32,14 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <schema name="public" layers="0" fill-color="#e1e1e1" name-color="#000000" sql-disabled="true">
 </schema>
 
-<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="12" z-value="0">
+<table name="script_evaluation_events" layers="0" collapse-mode="2" max-obj-count="14" z-value="0">
 	<schema name="public"/>
 	<role name="&quot;plutus-admin&quot;"/>
 	<position x="940" y="60"/>
+	<column name="pk" not-null="true"
+	 identity-type="ALWAYS">
+		<type name="bigint" length="0"/>
+	</column>
 	<column name="slot" not-null="true">
 		<type name="bigint" length="0"/>
 		<comment> <![CDATA[Absolute Slot Number]]> </comment>
@@ -43,6 +47,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="block" not-null="true">
 		<type name="bigint" length="0"/>
 		<comment> <![CDATA[Block Height]]> </comment>
+	</column>
+	<column name="major_protocol_version" not-null="true">
+		<type name="smallint" length="0"/>
 	</column>
 	<column name="evaluated_successfully" not-null="true">
 		<type name="bool" length="0"/>
@@ -71,6 +78,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="cost_model_params" not-null="true">
 		<type name="bigint" length="0"/>
 	</column>
+	<constraint name="script_evaluation_events_pk" type="pk-constr" table="public.script_evaluation_events">
+		<columns names="pk" ref-type="src-columns"/>
+	</constraint>
 </table>
 
 <table name="cost_model_params" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
@@ -89,7 +99,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+<table name="serialised_scripts" layers="0" collapse-mode="2" max-obj-count="3" z-value="0">
 	<schema name="public"/>
 	<role name="&quot;plutus-admin&quot;"/>
 	<position x="320" y="180"/>
@@ -97,9 +107,6 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<type name="bytea" length="0"/>
 	</column>
 	<column name="ledger_language" not-null="true">
-		<type name="smallint" length="0"/>
-	</column>
-	<column name="major_protocol_ver" not-null="true">
 		<type name="smallint" length="0"/>
 	</column>
 	<column name="serialised" not-null="true">
@@ -129,7 +136,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="public"/>
 	<role name="&quot;plutus-admin&quot;"/>
 	<position x="1060" y="460"/>
-	<definition> <![CDATA[select ds.hash, ss.ledger_language, ss.major_protocol_ver, ds.deserialised
+	<definition> <![CDATA[select ds.hash, ss.ledger_language, ds.deserialised
 from deserialised_scripts as ds 
 join serialised_scripts as ss on ds.hash = ss.hash]]> </definition>
 </view>
@@ -152,7 +159,7 @@ join serialised_scripts as ss on ds.hash = ss.hash]]> </definition>
 	<parameter name="_js" in="true">
 		<type name="jsonb" length="0"/>
 	</parameter>
-	<definition> <![CDATA[RETURN ARRAY(SELECT jsonb_array_elements_text(_js) AS jsonb_array_elements_text);]]> </definition>
+	<definition> <![CDATA[SELECT ARRAY(SELECT jsonb_array_elements_text(_js) AS jsonb_array_elements_text);]]> </definition>
 </function>
 
 <view name="builtin_version_num_usages" layers="0" materialized="true" collapse-mode="2" max-obj-count="0" z-value="0">
@@ -170,14 +177,12 @@ join serialised_scripts as ss on ds.hash = ss.hash]]> </definition>
     )
   ) AS BUILTIN,
   LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER,
   COUNT(*) AS NUM_USAGES
 FROM
   SCRIPTS
 GROUP BY
   BUILTIN,
-  LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER
+  LEDGER_LANGUAGE
 ORDER BY
   NUM_USAGES DESC]]> </definition>
 </view>
@@ -197,14 +202,12 @@ ORDER BY
     )
   ) AS BUILTIN,
   LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER,
   COUNT(DISTINCT HASH) AS NUM_SCRIPTS
 FROM
   SCRIPTS
 GROUP BY
   BUILTIN,
-  LEDGER_LANGUAGE,
-  MAJOR_PROTOCOL_VER
+  LEDGER_LANGUAGE
 ORDER BY
   NUM_SCRIPTS DESC]]> </definition>
 </view>
@@ -216,6 +219,7 @@ ORDER BY
 	<definition> <![CDATA[SELECT
   SEE.SLOT,
   SEE.BLOCK,
+  SEE.MAJOR_PROTOCOL_VERSION,
   SEE.EVALUATED_SUCCESSFULLY,
   SEE.EXEC_BUDGET_CPU,
   SEE.EXEC_BUDGET_MEM,
@@ -224,7 +228,6 @@ ORDER BY
   SEE.REDEEMER,
   SEE.SCRIPT_CONTEXT,
   SS.LEDGER_LANGUAGE,
-  SS.MAJOR_PROTOCOL_VER,
   SS.SERIALISED
 FROM
   SCRIPT_EVALUATION_EVENTS AS SEE

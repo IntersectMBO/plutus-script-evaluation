@@ -8,8 +8,7 @@ import Cardano.Api.Shelley (
   chainPointToSlotNo,
   unBlockNo,
  )
-import Cardano.Ledger.BaseTypes (getVersion)
-import Cardano.Ledger.Binary (encCBOR)
+import Cardano.Ledger.Binary (encCBOR, getVersion64)
 import Cardano.Ledger.Binary qualified as Binary
 import Cardano.Ledger.Plutus (
   ExUnits (..),
@@ -35,7 +34,7 @@ import Data.ByteString.Short (fromShort)
 import Data.Digest.Murmur64 (Hash64, hash64, hash64Add)
 import Data.Function ((&))
 import Data.Functor ((<&>))
-import Data.Int (Int16, Int64)
+import Data.Int (Int64)
 import Data.List (nub)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.String.Interpolate (i)
@@ -46,7 +45,12 @@ import Database.PostgreSQL.Simple qualified as PostgreSQL
 import FileStorage qualified
 import Path (Abs, Dir, Path)
 import PlutusCore.Evaluation.Machine.ExMemory (ExCPU, ExMemory)
-import PlutusLedgerApi.Common (Data, PlutusLedgerLanguage (..), toData)
+import PlutusLedgerApi.Common (
+  Data,
+  MajorProtocolVersion (MajorProtocolVersion),
+  PlutusLedgerLanguage (..),
+  toData,
+ )
 import PlutusLedgerApi.V3 (
   ScriptContext (scriptContextScriptInfo),
   ScriptInfo (..),
@@ -125,8 +129,10 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
      where
       event :: DB.EvaluationEventRecord =
         DB.MkEvaluationEventRecord'
-          { eeSlotNo
+          { eePk = Nothing
+          , eeSlotNo
           , eeBlockNo
+          , eeMajorProtocolVersion
           , eeEvaluatedSuccessfully
           , eeExecBudgetCpu
           , eeExecBudgetMem
@@ -148,7 +154,6 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
         DB.MkSerialisedScriptRecord
           { ssHash = eeScriptHash
           , ssLedgerLanguage
-          , ssMajorProtocolVersion
           , ssSerialised
           }
 
@@ -160,7 +165,11 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
 
       cmParamValues :: [Int64] = getCostModelParams pwcCostModel
 
-      ssMajorProtocolVersion :: Int16 = getVersion pwcProtocolVersion
+      eeMajorProtocolVersion :: MajorProtocolVersion =
+        -- In Ledger the major protocol version is stored as Word64
+        -- This seems to be an overkill as there are only 9 major protocol
+        -- versions so far, 'Int' is enough to store them.
+        MajorProtocolVersion (fromIntegral (getVersion64 pwcProtocolVersion))
 
       ssLedgerLanguage :: PlutusLedgerLanguage =
         case isLanguage @l of
@@ -209,12 +218,9 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
       eeScriptHash :: ByteString =
         pwcScriptHash
           & encCBOR
-          & Binary.toBuilder version
+          & Binary.toBuilder pwcProtocolVersion
           & toLazyByteString
           & toStrict
-       where
-        version :: Binary.Version
-        version = toEnum (fromIntegral ssMajorProtocolVersion)
 
 hashParamValues :: [Int64] -> Maybe Hash64
 hashParamValues = \case

@@ -8,7 +8,7 @@ import Data.Bits (Bits (shiftR, xor, (.&.)))
 import Data.Coerce (coerce)
 import Data.Digest.Murmur64 (Hash64, asWord64)
 import Data.Int (Int16, Int64)
-import Data.IntCast (intCastIso)
+import Data.IntCast (intCast, intCastIso)
 import Data.Maybe (maybeToList)
 import Data.Profunctor.Product.Default (Default (..))
 import Data.SatInt (fromSatInt, unsafeToSatInt)
@@ -31,7 +31,7 @@ import Opaleye.Internal.HaskellDB.PrimQuery (Literal (IntegerLit))
 import Opaleye.Internal.PGTypes (literalColumn)
 import PlutusCore.Evaluation.Machine.ExMemory (ExCPU (..), ExMemory (..))
 import PlutusLedgerApi.Common (
-  MajorProtocolVersion (MajorProtocolVersion),
+  MajorProtocolVersion (MajorProtocolVersion, getMajorProtocolVersion),
   PlutusLedgerLanguage (..),
   SatInt,
  )
@@ -108,6 +108,10 @@ instance DefaultFromField SqlInt4 SatInt where
 
 instance Default FromFields (FieldNullable SqlInt8) [Int64] where
   def = maybeToList <$> def
+
+instance Default ToFields MajorProtocolVersion (Field SqlInt2) where
+  def =
+    toToFields $ literalColumn . IntegerLit . intCast . getMajorProtocolVersion
 
 instance DefaultFromField SqlInt2 MajorProtocolVersion where
   defaultFromField = MajorProtocolVersion <$> fromPGSFromField
