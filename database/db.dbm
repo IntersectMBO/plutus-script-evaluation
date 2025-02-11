@@ -236,6 +236,14 @@ FROM
 ]]> </definition>
 </view>
 
+<index name="block_asc" table="public.script_evaluation_events"
+	 concurrent="false" unique="false" fast-update="false" buffering="false" nulls-not-distinct="false"
+	 index-type="btree" factor="0">
+		<idxelement use-sorting="true" nulls-first="false" asc-order="true">
+			<column name="block"/>
+		</idxelement>
+</index>
+
 <constraint name="cost_model_params_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="RESTRICT" del-action="RESTRICT" ref-table="public.cost_model_params" table="public.script_evaluation_events">
 	<columns names="cost_model_params" ref-type="src-columns"/>
