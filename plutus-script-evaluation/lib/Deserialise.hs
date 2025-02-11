@@ -10,6 +10,7 @@ import Data.Aeson qualified as Json
 import Data.Base64.Types qualified as Base64
 import Data.ByteString qualified as BS
 import Data.ByteString.Base64 qualified as Base64
+import Data.Coerce (coerce)
 import Data.Function ((&))
 import Data.Some (withSome)
 import Data.String.Interpolate (i)
@@ -18,6 +19,7 @@ import Database qualified as DB
 import Database.PostgreSQL.Simple (Connection)
 import Numeric.Natural (Natural)
 import PlutusCore (DefaultUni (..), ValueOf (..))
+import PlutusCore.DeBruijn.Internal (FakeNamedDeBruijn (..))
 import PlutusCore.Default (noMoreTypeFunctions)
 import PlutusCore.Default qualified as U
 import PlutusCore.Pretty (pretty, render)
@@ -60,7 +62,7 @@ deserialiseScript
   (DB.MkSerialisedScriptRecord hash _ledgerLang serialised) = do
     let builtinPredicate _fun = Nothing -- Don't check builtins compatibility
         decoder = decodeViaFlatWith (U.decodeProgram builtinPredicate)
-    uplc <-
+    uplc :: U.Program FakeNamedDeBruijn U.DefaultUni U.DefaultFun () <-
       case CBOR.deserialiseFromBytes decoder (BS.fromStrict serialised) of
         Left err ->
           throwError $ CBORDeserialiseError $ readDeserialiseFailureInfo err
@@ -69,7 +71,8 @@ deserialiseScript
               throwError $ RemainderError remainder
         Right (_rest, uplc) ->
           pure uplc
-    pure . DB.MkDeserialisedScriptRecord hash . termToJson $ U._progTerm uplc
+    pure . DB.MkDeserialisedScriptRecord hash . termToJson . U._progTerm $
+      coerce uplc
 
 termToJson :: U.Term U.NamedDeBruijn U.DefaultUni U.DefaultFun () -> Json.Value
 termToJson = \case
