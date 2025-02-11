@@ -192,16 +192,20 @@ inputFromRecord evalCtxRef MkScriptEvaluationRecord'{..} = do
       Left err -> fail $ "Failed to deserialise script: " <> show err
       Right script -> pure script
 
+  let seiData :: [Data]
+      seiData =
+        let addRedeemerDatum =
+              case seLedgerLanguage of
+                PlutusV3 -> id
+                _ -> maybe id (:) seDatum . maybe id (:) seRedeemer
+         in deserialise . BSL.fromStrict <$> addRedeemerDatum [seScriptContext]
   pure
     MkScriptEvaluationInput
       { seiPlutusLedgerLanguage = seLedgerLanguage
       , seiMajorProtocolVersion = seMajorProtocolVersion
       , seiEvaluationContext
       , seiScript
-      , seiData =
-          (deserialise . BSL.fromStrict <$>)
-            . maybe id (:) seDatum
-            $ maybe id (:) seRedeemer [seScriptContext]
+      , seiData
       , seiExBudget = ExBudget seExecBudgetCpu seExecBudgetMem
       , seiEvaluationSuccess = seEvaluatedSuccessfully
       , seiBlock = seBlockNo
