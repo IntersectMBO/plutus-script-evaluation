@@ -199,6 +199,7 @@ SELECT
   SEE.EVALUATED_SUCCESSFULLY,
   SEE.EXEC_BUDGET_CPU,
   SEE.EXEC_BUDGET_MEM,
+  CMP.PK AS COST_MODEL_KEY,
   CMP.PARAM_VALUES AS COST_MODEL_PARAM_VALUES,
   SEE.DATUM,
   SEE.REDEEMER,
@@ -211,6 +212,15 @@ FROM
   JOIN COST_MODEL_PARAMS CMP ON SEE.COST_MODEL_PARAMS = CMP.PK;
 -- ddl-end --
 ALTER VIEW public.script_evaluations OWNER TO "plutus-admin";
+-- ddl-end --
+
+-- object: block_asc | type: INDEX --
+-- DROP INDEX IF EXISTS public.block_asc CASCADE;
+CREATE INDEX block_asc ON public.script_evaluation_events
+USING btree
+(
+	block ASC NULLS LAST
+);
 -- ddl-end --
 
 -- object: cost_model_params_fk | type: CONSTRAINT --
