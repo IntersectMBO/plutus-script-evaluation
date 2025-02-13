@@ -11,8 +11,10 @@ import Data.ByteString qualified as BSL
 import Data.ByteString.Short qualified as BSS
 import Data.Digest.Murmur64 (Hash64)
 import Data.Either (isRight)
+import Data.Int (Int64)
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime, nominalDiffTimeToSeconds)
@@ -49,6 +51,7 @@ data ScriptEvaluationInput = MkScriptEvaluationInput
   , seiData :: [Data]
   , seiScript :: !ScriptForEvaluation
   , seiExBudget :: !ExBudget
+  , seiEvaluationPk :: Int64
   , seiEvaluationSuccess :: !Bool
   , seiBlock :: !BlockNo
   }
@@ -145,13 +148,6 @@ evaluateScripts conn startBlock callback = do
            in ((threads - 1, n + 1, pt', et'), ())
     pure ()
  where
-  {-
-  (_, n, pt, et) <- readIORef st
-  when (n `mod` 100 == 0) $ liftIO do
-    putStrLn $ "Average time: processing " <> show pt <> "ms, "
-      <> "evaluation " <> show et <> "ms"
-  -}
-
   waitForAFreeThread :: Int -> IORef (Int, Word32, Word32, Word32) -> m ()
   waitForAFreeThread maxThreads counter = do
     (threadCount, _, _, _) <- readIORef counter
@@ -189,7 +185,12 @@ inputFromRecord evalCtxRef MkScriptEvaluationRecord'{..} = do
       seLedgerLanguage
       seMajorProtocolVersion
       (BSS.toShort seScript) of
-      Left err -> fail $ "Failed to deserialise script: " <> show err
+      Left err ->
+        fail $
+          "Failed to deserialise script ("
+            <> show sePk
+            <> "): "
+            <> show err
       Right script -> pure script
 
   let seiData :: [Data]
@@ -207,6 +208,7 @@ inputFromRecord evalCtxRef MkScriptEvaluationRecord'{..} = do
       , seiScript
       , seiData
       , seiExBudget = ExBudget seExecBudgetCpu seExecBudgetMem
+      , seiEvaluationPk = fromMaybe (-1) sePk
       , seiEvaluationSuccess = seEvaluatedSuccessfully
       , seiBlock = seBlockNo
       }
@@ -225,13 +227,15 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
         seiData
 
   let b = unBlockNo seiBlock
-  when (b `mod` 100 == 0) (print b)
+  when (b `mod` 100 == 0) (print seiEvaluationPk)
 
   let evaluationSuccess = isRight evaluationResult
 
   when (evaluationSuccess /= seiEvaluationSuccess) do
     let msg =
-          "Script evaluation result ("
+          "Script evaluation (pk = "
+            ++ show seiEvaluationPk
+            ++ ") result ("
             ++ show evaluationSuccess
             ++ ") does not match the recorded result ("
             ++ show seiEvaluationSuccess
@@ -250,4 +254,9 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
 
   case evaluationResult of
     Right _spentExBudget -> pure ()
-    Left err -> putStrLn $ "Script evaluation was not successful: " <> show err
+    Left err ->
+      putStrLn $
+        "Script evaluation (pk = "
+          <> show seiEvaluationPk
+          <> ") was not successful: "
+          <> show err
