@@ -1,3 +1,8 @@
+{- | This module contains the main entry point
+into the program which CEK-evaluates scripts using
+the information recorded in the database in a
+streaming fashion.
+-}
 module Main where
 
 import Control.Exception (bracket, catch)
@@ -15,10 +20,10 @@ main :: IO ()
 main = withUtf8 do
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout LineBuffering
-  Options{optsDatabaseConnStr} <- execParser parserInfo
+  Options{optsDatabaseConnStr, startBlock} <- execParser parserInfo
   displaySqlError $
     bracket (PG.connectPostgreSQL optsDatabaseConnStr) PG.close \conn -> do
-      _result <- evaluateScripts conn mempty onScriptEvaluationInput
+      evaluateScripts conn startBlock onScriptEvaluationInput
       putStrLn "Done evaluating scripts"
 
 displaySqlError :: IO () -> IO ()

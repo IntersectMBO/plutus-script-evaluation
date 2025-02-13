@@ -193,6 +193,7 @@ data
     datum
     redeemer
     scriptContext
+    costModelKey
     costModel
   = MkScriptEvaluationRecord'
   { sePk :: pk
@@ -207,6 +208,7 @@ data
   , seDatum :: datum
   , seRedeemer :: redeemer
   , seScriptContext :: scriptContext
+  , seCostModelKey :: costModelKey
   , seCostModelParams :: costModel
   }
   deriving (Show, Eq)
@@ -225,6 +227,7 @@ type ScriptEvaluationRecord =
     (Maybe ByteString) -- datum
     (Maybe ByteString) -- redeemer
     ByteString -- script_context
+    Hash64 -- cost_model_key
     [Int64] -- cost_model_params
 
 type ScriptEvaluationRecordFields =
@@ -237,10 +240,11 @@ type ScriptEvaluationRecordFields =
     (Field SqlBool) -- evaluated_successfully
     (Field SqlInt4) -- exec_budget_cpu
     (Field SqlInt4) -- exec_budget_mem
-    (Field SqlBytea) -- script_hash
+    (Field SqlBytea) -- script
     (FieldNullable SqlBytea) -- datum
     (FieldNullable SqlBytea) -- redeemer
     (Field SqlBytea) -- script_context
+    (Field SqlInt8) -- cost_model_params
     (Field (SqlArray SqlInt8)) -- cost_model_params
 
 --------------------------------------------------------------------------------
@@ -292,10 +296,11 @@ scriptEvaluations =
         , seEvaluatedSuccessfully = tableField "evaluated_successfully"
         , seExecBudgetCpu = tableField "exec_budget_cpu"
         , seExecBudgetMem = tableField "exec_budget_mem"
-        , seScript = tableField "serialised"
+        , seScript = tableField "script_serialised"
         , seDatum = tableField "datum"
         , seRedeemer = tableField "redeemer"
         , seScriptContext = tableField "script_context"
+        , seCostModelKey = tableField "cost_model_key"
         , seCostModelParams = tableField "cost_model_param_values"
         }
 

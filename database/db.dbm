@@ -3,8 +3,8 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.1.5" use-changelog="false" max-obj-count="18"
-	 last-position="257,118" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
+<dbmodel pgmodeler-ver="1.1.6" use-changelog="false" max-obj-count="18"
+	 last-position="0,0" last-zoom="1" scene-rect="0,0,1570.8,1076.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -223,6 +223,7 @@ ORDER BY
   SEE.EVALUATED_SUCCESSFULLY,
   SEE.EXEC_BUDGET_CPU,
   SEE.EXEC_BUDGET_MEM,
+  CMP.PK AS COST_MODEL_KEY,
   CMP.PARAM_VALUES AS COST_MODEL_PARAM_VALUES,
   SEE.DATUM,
   SEE.REDEEMER,

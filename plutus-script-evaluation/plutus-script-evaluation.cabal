@@ -104,12 +104,16 @@ library
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
     , postgresql-simple
+    , prettyprinter-configurable
     , product-profunctors
     , serialise
     , some
     , string-interpolate                           ^>=0.3
     , text
+    , time
     , transformers
+    , unliftio
+    , unliftio-core
     , vector
 
 executable dump-script-events
@@ -155,8 +159,10 @@ executable evaluate-scripts
   import:         lang, deps-exe
   hs-source-dirs: evaluate-scripts
   main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
+  ghc-options:    -threaded -with-rtsopts=-N
   other-modules:  Options
   build-depends:
-    , cardano-api  ^>=10.4
+    , cardano-api       ^>=10.4
+    , cardano-slotting
     , text
+    , unliftio-core

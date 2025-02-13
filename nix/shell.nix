@@ -74,7 +74,7 @@ cabalProject: {
       description = "Evaluate Plutus Scripts from mainnet";
       group = "general";
       exec = ''
-        cabal run evaluate-scripts -- --database-conn-str "$DB_CONN_STRING"
+        cabal run evaluate-scripts -- --start-block=0 --database-conn-str "$DB_CONN_STRING"
       '';
     };
   };
