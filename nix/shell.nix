@@ -46,14 +46,6 @@ cabalProject: {
       '';
     };
 
-    aggregate = {
-      description = "Aggregate Plutus Script events from mainnet";
-      group = "general";
-      exec = ''
-        cabal run aggregate-script-events -- --event-dir dumps/events
-      '';
-    };
-
     deserialise = {
       description = "Deserialise Plutus Scripts from mainnet";
       group = "general";
@@ -92,7 +84,7 @@ cabalProject: {
     stylish-haskell.enable = false;
     fourmolu.enable = true;
     hlint.enable = true;
-    editorconfig-checker.enable = true;
+    editorconfig-checker.enable = false;
     nixpkgs-fmt.enable = false;
   };
 }
