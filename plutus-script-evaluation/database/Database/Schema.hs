@@ -3,6 +3,7 @@
 
 module Database.Schema where
 
+import Cardano.Slotting.Block (BlockNo)
 import Cardano.Slotting.Slot (SlotNo)
 import Data.Aeson qualified as Json
 import Data.ByteString (ByteString)
@@ -29,7 +30,6 @@ import Opaleye (
   showSql,
   table,
  )
-import Ouroboros.Consensus.Block (BlockNo)
 import PlutusLedgerApi.Common (
   ExCPU,
   ExMemory,
