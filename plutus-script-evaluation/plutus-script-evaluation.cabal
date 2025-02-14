@@ -42,127 +42,211 @@ common lang
     -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
     -Wredundant-constraints
 
-common deps
-  build-depends: base >=4.9 && <5
+-- Public library contains functionality for dumping and loading script events
+library
+  import:          lang
+  hs-source-dirs:  lib
+  exposed-modules:
+    Dump
+    FileStorage
+    LedgerEvents.FileWriter
+    LedgerStates
+    Render
+    Streaming
+    Types
 
-common deps-exe
-  import:        deps
   build-depends:
+    , base                                         >=4.9      && <5
+    , base16-bytestring
+    , cardano-api                                  ^>=10.4
+    , cardano-ledger-alonzo
+    , cardano-ledger-core
+    , cardano-slotting                             ^>=0.2.0.0
+    , deepseq
+    , dlist
+    , ouroboros-consensus
+    , ouroboros-consensus-cardano
+    , path
+    , path-io
+    , plutus-ledger-api
+    , plutus-ledger-api:plutus-ledger-api-testlib
+    , serialise
+    , string-interpolate                           ^>=0.3
+    , text
+    , transformers
+
+-- Internal library for database access
+library lib-database
+  import:          lang
+  hs-source-dirs:  database
+  exposed-modules:
+    Database
+    Database.Orphans
+    Database.Query
+    Database.Schema
+
+  build-depends:
+    , aeson
+    , base                 >=4.9       && <5
     , bytestring
+    , cardano-slotting
+    , int-cast
+    , murmur-hash          ^>=0.1.0.10
+    , opaleye
+    , plutus-core
+    , plutus-ledger-api
+    , postgresql-simple
+    , product-profunctors
+    , unliftio-core
+
+-- Executable for dumping script events to file system
+executable dump-script-events
+  import:         lang
+  hs-source-dirs: dump-script-events
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:  Options
+  build-depends:
+    , base                      >=4.9   && <5
+    , bytestring
+    , cardano-api               ^>=10.4
     , optparse-applicative
     , path
     , plutus-script-evaluation
     , postgresql-simple
     , with-utf8
 
-library
-  import:          lang, deps
-  hs-source-dirs:  lib
-  exposed-modules:
-    Aggregate
-    Database
-    Database.Orphans
-    Database.Query
-    Database.Schema
-    Deserialise
-    Dump
-    Evaluate
-    FileStorage
+-- Executable for uploading script events to database
+executable load-script-events
+  import:         lang
+  hs-source-dirs: load-script-events
+  main-is:        Main.hs
+  ghc-options:    -threaded -rtsopts
+  other-modules:
     LedgerEvents.DbLoader
-    LedgerEvents.FileWriter
-    LedgerStates
     Load
-    Materialise
-    Render
-    Streaming
-    Types
+    Options
 
   build-depends:
-    , aeson
-    , base16-bytestring
-    , base64
+    , base                      >=4.9   && <5
     , bytestring
-    , cardano-api                                  ^>=10.4
-    , cardano-ledger-alonzo
+    , cardano-api               ^>=10.4
     , cardano-ledger-binary
     , cardano-ledger-core
-    , cardano-slotting                             ^>=0.2.0.0
-    , cborg
-    , containers
-    , deepseq
-    , dlist
-    , int-cast
-    , lens
-    , mtl
-    , murmur-hash                                  ^>=0.1.0.10
-    , opaleye
-    , ouroboros-consensus
-    , ouroboros-consensus-cardano
+    , lib-database
+    , lib-deserialise-scripts
+    , lib-materialise-views
+    , murmur-hash
+    , optparse-applicative
     , path
     , path-io
     , plutus-core
     , plutus-ledger-api
-    , plutus-ledger-api:plutus-ledger-api-testlib
+    , plutus-script-evaluation
+    , postgresql-simple
+    , pretty-show
+    , serialise
+    , string-interpolate
+    , with-utf8
+
+-- Internal library for deserialising script events 
+-- (shared by several executables)
+library lib-deserialise-scripts
+  import:          lang
+  hs-source-dirs:  deserialise-scripts/lib
+  exposed-modules: Deserialise
+  build-depends:
+    , aeson
+    , base                >=4.9 && <5
+    , base64
+    , bytestring
+    , cborg
+    , lib-database
+    , mtl
+    , plutus-core
+    , plutus-ledger-api
+    , postgresql-simple
+    , some
+    , string-interpolate
+    , vector
+
+-- Executable for deserialising script events
+executable deserialise-scripts
+  import:         lang
+  hs-source-dirs: deserialise-scripts/exe
+  main-is:        Main.hs
+  ghc-options:    -threaded -with-rtsopts=-N
+  other-modules:  Options
+  build-depends:
+    , aeson
+    , base                     >=4.9 && <5
+    , base16-bytestring
+    , base64
+    , bytestring
+    , cborg
+    , lib-database
+    , lib-deserialise-scripts
+    , mtl
+    , optparse-applicative
+    , plutus-core
+    , plutus-ledger-api
+    , postgresql-simple
+    , some
+    , string-interpolate
+    , vector
+    , with-utf8
+
+-- Internal library for materialising views 
+-- (shared by several executables)
+library lib-materialise-views
+  import:          lang
+  hs-source-dirs:  materialise-views/lib
+  exposed-modules: Materialise
+  build-depends:
+    , base               >=4.9 && <5
+    , postgresql-simple
+
+-- Executable for materialising views
+executable materialise-views
+  import:         lang
+  hs-source-dirs: materialise-views/exe
+  main-is:        Main.hs
+  ghc-options:    -threaded -with-rtsopts=-N
+  other-modules:  Options
+  build-depends:
+    , base                   >=4.9 && <5
+    , bytestring
+    , lib-database
+    , lib-materialise-views
+    , optparse-applicative
+    , postgresql-simple
+    , with-utf8
+
+-- Executabe for evaluating scripts
+executable evaluate-scripts
+  import:         lang
+  hs-source-dirs: evaluate-scripts
+  main-is:        Main.hs
+  ghc-options:    -threaded -with-rtsopts=-N
+  other-modules:
+    Evaluate
+    Options
+
+  build-depends:
+    , base                        >=4.9 && <5
+    , bytestring
+    , cardano-slotting
+    , containers
+    , lib-database
+    , murmur-hash
+    , optparse-applicative
+    , plutus-ledger-api
     , postgresql-simple
     , prettyprinter-configurable
-    , product-profunctors
     , serialise
-    , some
-    , string-interpolate                           ^>=0.3
     , text
     , time
     , transformers
     , unliftio
     , unliftio-core
-    , vector
-
-executable dump-script-events
-  import:         lang, deps-exe
-  hs-source-dirs: dump-script-events
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  other-modules:  Options
-  build-depends:  cardano-api ^>=10.4
-
-executable load-script-events
-  import:         lang, deps-exe
-  hs-source-dirs: load-script-events
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  other-modules:  Options
-  build-depends:
-    , cardano-api  ^>=10.4
-    , pretty-show
-
-executable aggregate-script-events
-  import:         lang, deps-exe
-  hs-source-dirs: aggregate-script-events
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  other-modules:  Options
-
-executable deserialise-scripts
-  import:         lang, deps-exe
-  hs-source-dirs: deserialise-scripts
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  other-modules:  Options
-
-executable materialise-views
-  import:         lang, deps-exe
-  hs-source-dirs: materialise-views
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  other-modules:  Options
-
-executable evaluate-scripts
-  import:         lang, deps-exe
-  hs-source-dirs: evaluate-scripts
-  main-is:        Main.hs
-  ghc-options:    -threaded -with-rtsopts=-N
-  other-modules:  Options
-  build-depends:
-    , cardano-api       ^>=10.4
-    , cardano-slotting
-    , text
-    , unliftio-core
+    , with-utf8

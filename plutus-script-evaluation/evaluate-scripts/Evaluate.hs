@@ -1,6 +1,6 @@
 module Evaluate where
 
-import Cardano.Slotting.Block (unBlockNo)
+import Cardano.Slotting.Block (BlockNo, unBlockNo)
 import Codec.Serialise (deserialise)
 import Control.Concurrent (getNumCapabilities)
 import Control.Monad (when)
@@ -22,7 +22,6 @@ import Data.Word (Word32)
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as Postgres
 import Database.Schema (ScriptEvaluationRecord' (..))
-import Ouroboros.Consensus.Block (BlockNo)
 import PlutusLedgerApi.Common (
   Data,
   EvaluationContext (..),
