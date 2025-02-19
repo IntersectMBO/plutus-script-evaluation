@@ -1,15 +1,15 @@
+{-# LANGUAGE StrictData #-}
+
 module Evaluate where
 
-import Cardano.Slotting.Block (BlockNo, unBlockNo)
+import Cardano.Slotting.Block (BlockNo)
 import Codec.Serialise (deserialise)
 import Control.Concurrent (getNumCapabilities)
 import Control.Monad (when)
-import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Trans.Writer (WriterT (runWriterT))
 import Data.ByteString qualified as BSL
 import Data.ByteString.Short qualified as BSS
-import Data.Digest.Murmur64 (Hash64)
 import Data.Either (isRight)
 import Data.Int (Int64)
 import Data.Map (Map)
@@ -21,7 +21,7 @@ import Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime, nominalDif
 import Data.Word (Word32)
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as Postgres
-import Database.Schema (ScriptEvaluationRecord' (..))
+import Database.PostgreSQL.Simple.Types (PGArray (fromPGArray))
 import PlutusLedgerApi.Common (
   Data,
   EvaluationContext (..),
@@ -44,15 +44,15 @@ import UnliftIO (IORef, MonadIO, atomicModifyIORef', liftIO, newIORef, readIORef
 import UnliftIO.Concurrent (forkFinally, threadDelay)
 
 data ScriptEvaluationInput = MkScriptEvaluationInput
-  { seiPlutusLedgerLanguage :: !PlutusLedgerLanguage
-  , seiMajorProtocolVersion :: !MajorProtocolVersion
-  , seiEvaluationContext :: !EvaluationContext
+  { seiPlutusLedgerLanguage :: PlutusLedgerLanguage
+  , seiMajorProtocolVersion :: MajorProtocolVersion
+  , seiEvaluationContext :: EvaluationContext
   , seiData :: [Data]
-  , seiScript :: !ScriptForEvaluation
-  , seiExBudget :: !ExBudget
+  , seiScript :: ScriptForEvaluation
+  , seiExBudget :: ExBudget
   , seiEvaluationPk :: Int64
-  , seiEvaluationSuccess :: !Bool
-  , seiBlock :: !BlockNo
+  , seiEvaluationSuccess :: Bool
+  , seiBlock :: Int64
   }
 
 renderScriptEvaluationInput :: ScriptEvaluationInput -> String
@@ -71,37 +71,17 @@ renderScriptEvaluationInput MkScriptEvaluationInput{..} =
     ++ "\n\nseiData = "
     ++ Pretty.display seiData
     ++ "\n\nseiScript = "
-    ++ ( let ScriptNamedDeBruijn uplc = deserialisedScript seiScript
-          in Pretty.display uplc
-       )
-
-accumulateScripts
-  :: (MonadFail m, MonadUnliftIO m)
-  => Postgres.Connection
-  -- ^ Database connection
-  -> BlockNo
-  -- ^ Block number to start from
-  -> a
-  -- ^ Initial accumulator
-  -> (ScriptEvaluationInput -> a -> m a)
-  -- ^ Accumulation function
-  -> m a
-accumulateScripts conn startBlock initialAccum accumulate = do
-  evaluationContexts <- newIORef Map.empty
-  Db.withScriptEvaluationEvents conn startBlock initialAccum \accum record -> do
-    scriptInput <- inputFromRecord evaluationContexts record
-    accumulate scriptInput accum
+    ++ let ScriptNamedDeBruijn uplc = deserialisedScript seiScript
+        in Pretty.display uplc
 
 evaluateScripts
-  :: forall m
-   . (MonadFail m, MonadUnliftIO m)
-  => Postgres.Connection
+  :: Postgres.Connection
   -- ^ Database connection
   -> BlockNo
   -- ^ Block number to start from
-  -> (ScriptEvaluationInput -> m ())
+  -> (ScriptEvaluationInput -> IO ())
   -- ^ Callback
-  -> m ()
+  -> IO ()
 evaluateScripts conn startBlock callback = do
   maxThreads <- liftIO getNumCapabilities
   st <-
@@ -112,7 +92,7 @@ evaluateScripts conn startBlock callback = do
       , 0 -- average evaluation time (millis)
       )
   evalContexts <- newIORef Map.empty -- cashed evaluation contexts
-  Db.withScriptEvaluationEvents conn startBlock () \_unit record -> do
+  Db.withScriptEvaluationRecords conn startBlock () \_unit record -> do
     startProcessing <- liftIO getCurrentTime
     waitForAFreeThread maxThreads st
     atomicModifyIORef' st \(threads, n, a, s) ->
@@ -147,7 +127,7 @@ evaluateScripts conn startBlock callback = do
            in ((threads - 1, n + 1, pt', et'), ())
     pure ()
  where
-  waitForAFreeThread :: Int -> IORef (Int, Word32, Word32, Word32) -> m ()
+  waitForAFreeThread :: Int -> IORef (Int, Word32, Word32, Word32) -> IO ()
   waitForAFreeThread maxThreads counter = do
     (threadCount, _, _, _) <- readIORef counter
     when (threadCount >= maxThreads) do
@@ -159,10 +139,10 @@ evaluateScripts conn startBlock callback = do
 
 inputFromRecord
   :: (MonadFail m, MonadIO m)
-  => IORef (Map Hash64 EvaluationContext)
+  => IORef (Map Int64 EvaluationContext)
   -> Db.ScriptEvaluationRecord
   -> m ScriptEvaluationInput
-inputFromRecord evalCtxRef MkScriptEvaluationRecord'{..} = do
+inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
   let mkEvalCtx f =
         runExceptT (runWriterT f) >>= \case
           Left e -> fail $ "Failed to create evaluation context: " <> show e
@@ -173,9 +153,9 @@ inputFromRecord evalCtxRef MkScriptEvaluationRecord'{..} = do
       Just ctx -> pure ctx
       Nothing -> do
         ctx <- mkEvalCtx case seLedgerLanguage of
-          PlutusV1 -> V1.mkEvaluationContext seCostModelParams
-          PlutusV2 -> V2.mkEvaluationContext seCostModelParams
-          PlutusV3 -> V3.mkEvaluationContext seCostModelParams
+          PlutusV1 -> V1.mkEvaluationContext (fromPGArray seCostModelParams)
+          PlutusV2 -> V2.mkEvaluationContext (fromPGArray seCostModelParams)
+          PlutusV3 -> V3.mkEvaluationContext (fromPGArray seCostModelParams)
         let keyedEvalCtxs' = Map.insert seCostModelKey ctx keyedEvalCtxs
         liftIO $ writeIORef evalCtxRef keyedEvalCtxs'
         pure ctx
@@ -225,8 +205,7 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
         seiScript
         seiData
 
-  let b = unBlockNo seiBlock
-  when (b `mod` 100 == 0) (print seiEvaluationPk)
+  when (seiBlock `mod` 100 == 0) (print seiEvaluationPk)
 
   let evaluationSuccess = isRight evaluationResult
 
@@ -247,7 +226,7 @@ onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
     putStr msg
 
     nonce <- getCurrentTime
-    let logFile = show (unBlockNo seiBlock) ++ "_" ++ show nonce ++ ".log"
+    let logFile = show seiBlock ++ "_" ++ show nonce ++ ".log"
     putStrLn $ "Writing log to " ++ logFile
     TIO.writeFile logFile (Text.pack msg)
 

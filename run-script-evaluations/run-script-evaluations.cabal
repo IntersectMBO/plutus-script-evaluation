@@ -1,0 +1,72 @@
+cabal-version: 3.0
+name:          run-script-evaluations
+version:       0.1.0.0
+
+common lang
+  default-language:   Haskell2010
+  default-extensions:
+    BangPatterns
+    BlockArguments
+    DataKinds
+    DeriveAnyClass
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveLift
+    DeriveTraversable
+    DerivingStrategies
+    ExplicitForAll
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    MultiParamTypeClasses
+    NamedFieldPuns
+    NamedFieldPuns
+    NumericUnderscores
+    OverloadedStrings
+    QuasiQuotes
+    RecordWildCards
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeOperators
+    ViewPatterns
+
+  ghc-options:
+    -O2 -Wall -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+    -Wredundant-constraints
+
+executable run-script-evaluations
+  import:         lang
+  hs-source-dirs: src
+  main-is:        Main.hs
+  ghc-options:    -threaded -with-rtsopts=-N
+  other-modules:
+    Database
+    Database.PostgreSQL.Simple.Orphans
+    Evaluate
+    Options
+
+  build-depends:
+    , base                        >=4.9 && <5
+    , bytestring
+    , cardano-slotting
+    , containers
+    , murmur-hash
+    , optparse-applicative
+    , plutus-core
+    , plutus-ledger-api
+    , postgresql-simple
+    , prettyprinter-configurable
+    , serialise
+    , text
+    , time
+    , transformers
+    , unliftio
+    , with-utf8

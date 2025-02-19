@@ -1,18 +1,18 @@
 # Docs for this file: https://github.com/input-output-hk/iogx/blob/main/doc/api.md#mkhaskellprojectinshellargs
 # See `shellArgs` in `mkHaskellProject` in ./project.nix for more details.
 
-{ repoRoot
-, inputs
-, pkgs
-, lib
-, system
-,
+{
+  repoRoot,
+  inputs,
+  pkgs,
+  lib,
+  system,
 }:
 
 # Each flake variant defined in your project.nix project will yield a separate
 # shell. If no flake variants are defined, then cabalProject is the original project.
 cabalProject: {
-  name = "plutus-script-evaluation";
+  name = "index-script-evaluations";
 
   packages = [
     pkgs.figlet
@@ -61,22 +61,10 @@ cabalProject: {
         cabal run materialise-views -- --database-conn-str "$DB_CONN_STRING"
       '';
     };
-
-    evaluate = {
-      description = "Evaluate Plutus Scripts from mainnet";
-      group = "general";
-      exec = ''
-        cabal run evaluate-scripts -- --start-block=0 --database-conn-str "$DB_CONN_STRING"
-      '';
-    };
   };
 
-  # env = {
-  #   KEY = "VALUE";
-  # };
-
   shellHook = ''
-    figlet "Plutus Script Evaluation"
+    figlet "Plutus Script Evaluations: Indexer"
   '';
 
   preCommit = {
