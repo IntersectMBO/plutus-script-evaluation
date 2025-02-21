@@ -1,0 +1,32 @@
+name: "Evaluate mainnet scripts"
+
+# on:
+#   schedule:
+#     - cron: "0 0 * * 5" # Run every Friday at midnight
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    name: Build
+    runs-on: [plutus-script-evaluation-ci, self-hosted]
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout this Repo
+        uses: actions/checkout@main
+
+      - name: Add plutus SRP to the cabal.project
+        id: update_cabal_project
+        working-directory: run-script-evaluations
+        run: | 
+          NIX_PATH="nixpkgs=channel:nixos-unstable" \
+            nix-shell -p nix-prefetch-git --run ./add_srp.sh
+
+      - name: Evaluate
+        working-directory: run-script-evaluations
+        run: | 
+          nix develop --no-warn-dirty --accept-flake-config \
+            --command bash -c 'cabal clean && cabal update && evaluate' 
+
