@@ -8,13 +8,13 @@ module Options (
 )
 where
 
-import Cardano.Slotting.Block (BlockNo (BlockNo))
 import Data.ByteString (ByteString)
+import Data.Int (Int64)
 import Options.Applicative qualified as O
 
 data Options = Options
   { optsDatabaseConnStr :: ByteString
-  , startBlock :: BlockNo
+  , startFrom :: Int64
   }
   deriving (Show)
 
@@ -31,13 +31,13 @@ options = do
               \/docs/current/libpq-connect.html#LIBPQ-CONNSTRING"
           ]
       )
-  startBlock <-
+  startFrom <-
     O.option
-      (O.maybeReader (Just . BlockNo . read))
+      (O.maybeReader (Just . read))
       ( mconcat
-          [ O.long "start-block"
-          , O.metavar "BLOCK_NO"
-          , O.help "Block number to start from"
+          [ O.long "start-from"
+          , O.metavar "START_FROM"
+          , O.help "Primary key value to start evaluation from"
           ]
       )
   pure Options{..}

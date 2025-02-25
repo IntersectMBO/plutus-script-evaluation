@@ -29,7 +29,7 @@ let
         "https://chap.intersectmbo.org/" = inputs.CHaP;
       };
 
-      name = "plutus-script-evaluation";
+      name = "index-script-evaluations";
 
       compiler-nix-name = lib.mkDefault "ghc96";
 

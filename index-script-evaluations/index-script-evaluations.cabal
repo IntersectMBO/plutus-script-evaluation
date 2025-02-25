@@ -1,5 +1,5 @@
 cabal-version: 3.0
-name:          plutus-script-evaluation
+name:          index-script-evaluations
 version:       0.1.0.0
 
 common lang
@@ -47,6 +47,10 @@ library
   import:          lang
   hs-source-dirs:  lib
   exposed-modules:
+    Database
+    Database.Orphans
+    Database.Query
+    Database.Schema
     Dump
     FileStorage
     LedgerEvents.FileWriter
@@ -56,47 +60,32 @@ library
     Types
 
   build-depends:
-    , base                                         >=4.9      && <5
+    , aeson
+    , base                                         >=4.9       && <5
     , base16-bytestring
+    , bytestring
     , cardano-api                                  ^>=10.4
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
     , deepseq
     , dlist
+    , int-cast
+    , murmur-hash                                  ^>=0.1.0.10
+    , opaleye
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , path
     , path-io
+    , plutus-core
     , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
+    , postgresql-simple
+    , product-profunctors
     , serialise
     , string-interpolate                           ^>=0.3
     , text
     , transformers
-
--- Internal library for database access
-library lib-database
-  import:          lang
-  hs-source-dirs:  database
-  exposed-modules:
-    Database
-    Database.Orphans
-    Database.Query
-    Database.Schema
-
-  build-depends:
-    , aeson
-    , base                 >=4.9       && <5
-    , bytestring
-    , cardano-slotting
-    , int-cast
-    , murmur-hash          ^>=0.1.0.10
-    , opaleye
-    , plutus-core
-    , plutus-ledger-api
-    , postgresql-simple
-    , product-profunctors
     , unliftio-core
 
 -- Executable for dumping script events to file system
@@ -110,9 +99,9 @@ executable dump-script-events
     , base                      >=4.9   && <5
     , bytestring
     , cardano-api               ^>=10.4
+    , index-script-evaluations
     , optparse-applicative
     , path
-    , plutus-script-evaluation
     , postgresql-simple
     , with-utf8
 
@@ -133,7 +122,7 @@ executable load-script-events
     , cardano-api               ^>=10.4
     , cardano-ledger-binary
     , cardano-ledger-core
-    , lib-database
+    , index-script-evaluations
     , lib-deserialise-scripts
     , lib-materialise-views
     , murmur-hash
@@ -142,7 +131,6 @@ executable load-script-events
     , path-io
     , plutus-core
     , plutus-ledger-api
-    , plutus-script-evaluation
     , postgresql-simple
     , pretty-show
     , serialise
@@ -157,11 +145,11 @@ library lib-deserialise-scripts
   exposed-modules: Deserialise
   build-depends:
     , aeson
-    , base                >=4.9 && <5
+    , base                      >=4.9 && <5
     , base64
     , bytestring
     , cborg
-    , lib-database
+    , index-script-evaluations
     , mtl
     , plutus-core
     , plutus-ledger-api
@@ -184,7 +172,6 @@ executable deserialise-scripts
     , base64
     , bytestring
     , cborg
-    , lib-database
     , lib-deserialise-scripts
     , mtl
     , optparse-applicative
@@ -216,37 +203,7 @@ executable materialise-views
   build-depends:
     , base                   >=4.9 && <5
     , bytestring
-    , lib-database
     , lib-materialise-views
     , optparse-applicative
     , postgresql-simple
-    , with-utf8
-
--- Executabe for evaluating scripts
-executable evaluate-scripts
-  import:         lang
-  hs-source-dirs: evaluate-scripts
-  main-is:        Main.hs
-  ghc-options:    -threaded -with-rtsopts=-N
-  other-modules:
-    Evaluate
-    Options
-
-  build-depends:
-    , base                        >=4.9 && <5
-    , bytestring
-    , cardano-slotting
-    , containers
-    , lib-database
-    , murmur-hash
-    , optparse-applicative
-    , plutus-ledger-api
-    , postgresql-simple
-    , prettyprinter-configurable
-    , serialise
-    , text
-    , time
-    , transformers
-    , unliftio
-    , unliftio-core
     , with-utf8
