@@ -35,7 +35,21 @@ The repository contains a program that can be used to re-evaluate the scripts
 locally. You can use this program as a basis for your own re-evaluation, where
 you can modify various parameters to suit your needs:
 
-- The [Main module](plutus-script-evaluation/evaluate-scripts/Main.hs) of the `evaluate-scripts` executable.
-- The main workhorse, function `evaluateScripts` in the [Evaluation module](plutus-script-evaluation/evaluate-scripts/Evaluation.hs) does the boring parts (aggregating relevant script evaluation inputs, streaming the data from DB to a local computer, decoding CBOR, forking worker threads) so that you can do the interesting part: traverse script evaluations from the Mainnet accessing all of the original evaluation inputs to re-interpret them accordingly to your task;
+- The [Main module](run-script-evaluations/src/Main.hs) of the `run-script-evaluations` executable.
+- The main workhorse, function `evaluateScripts` in the [Evaluation module](run-script-evaluations/src/Evaluate.hs) does the boring parts (aggregating relevant script evaluation inputs, streaming the data from DB to a local computer, decoding CBOR, forking worker threads) so that you can do the interesting part: traverse script evaluations from the Mainnet accessing all of the original evaluation inputs to re-interpret them accordingly to your task;
 
-If a task requires maintaining local state (accumulator) during the evaluation, you can use the `accumulateScripts` function in the [Evaluation module](plutus-script-evaluation/evaluate-scripts/Evaluation.hs). This function is a more general version of `evaluateScripts` that allows you to maintain local state during the evaluation.
+
+## Github Actions Workflow
+
+Re-evaluates the Plutus script events from Mainnet periodically (once a week).
+
+The workflow is defined in the `.github/workflows/evaluate.yml` file.
+
+It consists of the following steps:
+
+* Determine the most recent commit  in the `plutus` repository.
+* Add a `source-repository-package` stanza to the `cabal.project` file, 
+  pointing to the commit from the previous step.
+* Build the `run-script-evaluations` executable and run it against the local 
+  postgresql database (a self-hosted github action runner located on the 
+  `plutus-node` server is used for this purpose).
