@@ -21,7 +21,3 @@ EOM
 
 # Append to cabal.project
 echo "$NEW_SECTION" >> cabal.project
-
-# Output the values for potential later use
-echo "commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
-echo "sha256=$NIX_SHA" >> $GITHUB_OUTPUT
