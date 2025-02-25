@@ -2,7 +2,6 @@
 
 module Evaluate where
 
-import Cardano.Slotting.Block (BlockNo)
 import Codec.Serialise (deserialise)
 import Control.Concurrent (getNumCapabilities)
 import Control.Monad (when)
@@ -77,12 +76,12 @@ renderScriptEvaluationInput MkScriptEvaluationInput{..} =
 evaluateScripts
   :: Postgres.Connection
   -- ^ Database connection
-  -> BlockNo
-  -- ^ Block number to start from
+  -> Int64
+  -- ^ Primary key value to start from
   -> (ScriptEvaluationInput -> IO ())
   -- ^ Callback
   -> IO ()
-evaluateScripts conn startBlock callback = do
+evaluateScripts conn startFrom callback = do
   maxThreads <- liftIO getNumCapabilities
   st <-
     newIORef
@@ -92,11 +91,10 @@ evaluateScripts conn startBlock callback = do
       , 0 -- average evaluation time (millis)
       )
   evalContexts <- newIORef Map.empty -- cashed evaluation contexts
-  Db.withScriptEvaluationRecords conn startBlock () \_unit record -> do
+  Db.withScriptEvaluationRecords conn startFrom () \_unit record -> do
     startProcessing <- liftIO getCurrentTime
     waitForAFreeThread maxThreads st
-    atomicModifyIORef' st \(threads, n, a, s) ->
-      ((threads + 1, n, a, s), ())
+    atomicModifyIORef' st \(threads, n, a, s) -> ((threads + 1, n, a, s), ())
     let work = do
           input <- inputFromRecord evalContexts record
           startEvaluation <- liftIO getCurrentTime

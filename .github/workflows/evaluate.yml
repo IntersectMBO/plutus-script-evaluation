@@ -1,0 +1,41 @@
+name: "Evaluate mainnet scripts"
+
+on:
+  schedule:
+    - cron: "0 0 * * 4" # Run every Thursday at midnight
+
+  workflow_dispatch:
+    inputs:
+      startFrom:
+        description: Start evaluation from a record with specified primary key
+        required: false
+        default: "0"
+
+jobs:
+  build:
+    name: Build
+    runs-on: [plutus-script-evaluation-ci, self-hosted]
+    steps:
+      - name: Checkout this Repo
+        uses: actions/checkout@main
+
+      - name: Add plutus SRP to the cabal.project
+        id: update_cabal_project
+        working-directory: run-script-evaluations
+        run: | 
+          NIX_PATH="nixpkgs=channel:nixos-unstable" \
+            nix-shell -p nix-prefetch-git --run ./add_srp.sh
+
+      - name: Evaluate
+        working-directory: run-script-evaluations
+        env:
+          PGPASSWORD: ${{ secrets.PLUTUS_READER_PGPASS }}
+        run: | 
+          nix develop --no-warn-dirty --accept-flake-config --impure \
+            --command bash -c 'cabal clean && \
+              cabal update && \
+              cabal run exe:run-script-evaluations -- \
+              --start-from=${{ github.event.inputs.startFrom }} \
+              --database-conn-str "host=localhost port=5432 dbname=mainnet_plutus_events user=plutus-reader" \
+              > evaluation.log'
+

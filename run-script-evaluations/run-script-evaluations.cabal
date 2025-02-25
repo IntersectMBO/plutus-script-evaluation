@@ -54,13 +54,13 @@ executable run-script-evaluations
     Options
 
   build-depends:
-    , base                        >=4.9 && <5
+    , base                        >=4.9    && <5
     , bytestring
     , cardano-slotting
     , containers
     , murmur-hash
     , optparse-applicative
-    , plutus-core
+    , plutus-core                 >=1.40.0
     , plutus-ledger-api
     , postgresql-simple
     , prettyprinter-configurable

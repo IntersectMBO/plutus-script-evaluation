@@ -20,10 +20,10 @@ main :: IO ()
 main = withUtf8 do
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout LineBuffering
-  Options{optsDatabaseConnStr, startBlock} <- execParser parserInfo
+  Options{optsDatabaseConnStr, startFrom} <- execParser parserInfo
   displaySqlError $
     bracket (PG.connectPostgreSQL optsDatabaseConnStr) PG.close \conn -> do
-      evaluateScripts conn startBlock onScriptEvaluationInput
+      evaluateScripts conn startFrom onScriptEvaluationInput
       putStrLn "Done evaluating scripts"
 
 displaySqlError :: IO () -> IO ()

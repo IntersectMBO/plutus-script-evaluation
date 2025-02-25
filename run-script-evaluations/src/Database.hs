@@ -1,6 +1,5 @@
 module Database where
 
-import Cardano.Slotting.Block (BlockNo (unBlockNo))
 import Data.ByteString (ByteString)
 import Data.Int (Int64)
 import Database.PostgreSQL.Simple qualified as PostgreSQL
@@ -36,11 +35,11 @@ data ScriptEvaluationRecord = MkScriptEvaluationRecord
 
 withScriptEvaluationRecords
   :: PostgreSQL.Connection
-  -> BlockNo
+  -> Int64
   -> a
   -> (a -> ScriptEvaluationRecord -> IO a)
   -> IO a
-withScriptEvaluationRecords connection blockNo accumulator callback = do
+withScriptEvaluationRecords connection startFrom accumulator callback = do
   PostgreSQL.fold
     connection
     "SELECT \
@@ -59,8 +58,8 @@ withScriptEvaluationRecords connection blockNo accumulator callback = do
     \ cost_model_key, \
     \ cost_model_param_values \
     \FROM script_evaluations \
-    \WHERE block > ? \
-    \ORDER BY block ASC"
-    (Only (unBlockNo blockNo))
+    \WHERE pk > ? \
+    \ORDER BY pk ASC"
+    (Only startFrom)
     accumulator
     callback
