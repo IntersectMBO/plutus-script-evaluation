@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: [plutus-script-evaluation-ci, self-hosted]
+    runs-on: [plutus-node, self-hosted]
     steps:
       - name: Checkout this Repo
         uses: actions/checkout@main
@@ -35,7 +35,7 @@ jobs:
             --command bash -c 'cabal clean && \
               cabal update && \
               cabal run exe:run-script-evaluations -- \
-              --start-from=${{ github.event.inputs.startFrom }} \
+              --start-from=${{ github.event.inputs.startFrom || '0' }} \
               --database-conn-str "host=localhost port=5432 dbname=mainnet_plutus_events user=plutus-reader" \
               > evaluation.log'
 
