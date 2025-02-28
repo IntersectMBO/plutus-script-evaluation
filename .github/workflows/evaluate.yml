@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: [plutus-script-evaluation-ci, self-hosted]
+    runs-on: [plutus-node, self-hosted]
     steps:
       - name: Checkout this Repo
         uses: actions/checkout@main
