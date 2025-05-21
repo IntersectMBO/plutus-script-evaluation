@@ -15,6 +15,7 @@ import Data.Function ((&))
 import Data.Some (withSome)
 import Data.String.Interpolate (i)
 import Data.Vector qualified as Vector
+import Data.Vector.Strict qualified as Strict
 import Database qualified as DB
 import Database.PostgreSQL.Simple (Connection)
 import Numeric.Natural (Natural)
@@ -148,6 +149,8 @@ valueOfToJson = \case
     Json.Bool b
   ValueOf (DefaultUniApply DefaultUniProtoList uni) xs ->
     Json.Array (Vector.fromList (valueOfToJson . ValueOf uni <$> xs))
+  ValueOf (DefaultUniApply DefaultUniProtoArray uni) xs ->
+    Json.Array (Strict.toLazy (valueOfToJson . ValueOf uni <$> xs))
   ValueOf
     (DefaultUniApply (DefaultUniApply DefaultUniProtoPair uniA) uniB)
     (a, b) ->
@@ -183,6 +186,7 @@ defaultUniToJson = \case
   DefaultUniUnit -> Json.String "unit"
   DefaultUniBool -> Json.String "bool"
   DefaultUniProtoList -> Json.String "list"
+  DefaultUniProtoArray -> Json.String "array"
   DefaultUniProtoPair -> "pair"
   DefaultUniApply uniF uniA ->
     Json.object

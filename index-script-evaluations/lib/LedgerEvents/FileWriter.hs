@@ -10,7 +10,6 @@ import Cardano.Ledger.Alonzo.Scripts (
   getCostModelParams,
  )
 import Cardano.Ledger.BaseTypes (getVersion)
-import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Plutus (
   LegacyPlutusArgs (LegacyPlutusArgs2, LegacyPlutusArgs3),
   Plutus (plutusBinary),
@@ -165,7 +164,7 @@ indexLedgerEvents = foldr indexLedgerEvent emptyPlutusEvents
 
   indexPlutusEvent
     :: ScriptEvaluationResult
-    -> PlutusWithContext StandardCrypto
+    -> PlutusWithContext
     -> PlutusEvents
     -> PlutusEvents
   indexPlutusEvent

@@ -64,7 +64,7 @@ library
     , base                                         >=4.9       && <5
     , base16-bytestring
     , bytestring
-    , cardano-api                                  ^>=10.4
+    , cardano-api                                  ^>=10.16
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
@@ -96,9 +96,9 @@ executable dump-script-events
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , base                      >=4.9   && <5
+    , base                      >=4.9    && <5
     , bytestring
-    , cardano-api               ^>=10.4
+    , cardano-api               ^>=10.16
     , index-script-evaluations
     , optparse-applicative
     , path
@@ -117,9 +117,9 @@ executable load-script-events
     Options
 
   build-depends:
-    , base                      >=4.9   && <5
+    , base                      >=4.9    && <5
     , bytestring
-    , cardano-api               ^>=10.4
+    , cardano-api               ^>=10.16
     , cardano-ledger-binary
     , cardano-ledger-core
     , index-script-evaluations
