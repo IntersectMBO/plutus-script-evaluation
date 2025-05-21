@@ -1,6 +1,5 @@
 module LedgerEvents.DbLoader where
 
-import Cardano.Api.Ledger (StandardCrypto)
 import Cardano.Api.Shelley (
   BlockNo (..),
   LedgerEvent (..),
@@ -112,7 +111,7 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
 
   indexPlutusEvent
     :: Bool
-    -> PlutusWithContext StandardCrypto
+    -> PlutusWithContext
     -> [EventRecords]
     -> [EventRecords]
   indexPlutusEvent

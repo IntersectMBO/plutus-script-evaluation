@@ -26,7 +26,7 @@ makeLedgerStateEventsIndexer
 makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
   ref <- newIORef initialIndexerState
   pure \case
-    RollForward block@(C.BlockInMode _era (C.Block header _)) _chainTip -> do
+    RollForward block@(C.BlockInMode _era (C.getBlockHeader -> header)) _chainTip -> do
       let (C.BlockHeader slot hash blockNo) = header
       let point = C.ChainPoint slot hash
       indexerState@IndexerState{..} <- readIORef ref

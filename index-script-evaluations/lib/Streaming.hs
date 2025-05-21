@@ -100,11 +100,13 @@ subscribeToChainSyncEvents socketPath networkId points callback =
         }
 
   bimBlockNo :: C.BlockInMode -> C.BlockNo
-  bimBlockNo (C.BlockInMode _era (C.Block (C.BlockHeader _ _ blockNo) _)) =
-    blockNo
+  bimBlockNo
+    (C.BlockInMode _era (C.getBlockHeader -> C.BlockHeader _ _ blockNo)) =
+      blockNo
 
   bimSlotNo :: C.BlockInMode -> C.SlotNo
-  bimSlotNo (C.BlockInMode _era (C.Block (C.BlockHeader slot _ _) _)) = slot
+  bimSlotNo (C.BlockInMode _era (C.getBlockHeader -> C.BlockHeader slot _ _)) =
+    slot
 
   fromChainTip :: C.ChainTip -> WithOrigin C.BlockNo
   fromChainTip tip = case tip of
