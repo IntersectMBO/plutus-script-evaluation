@@ -60,7 +60,7 @@ executable run-script-evaluations
     , containers
     , murmur-hash
     , optparse-applicative
-    , plutus-core                 >=1.40.0
+    , plutus-core                 >=1.48.0
     , plutus-ledger-api
     , postgresql-simple
     , prettyprinter-configurable
