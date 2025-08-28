@@ -17,7 +17,7 @@ jobs:
     runs-on: [plutus-node, self-hosted]
     steps:
       - name: Checkout this Repo
-        uses: actions/checkout@main
+        uses: actions/checkout@v4.3.0
 
       - name: Add plutus SRP to the cabal.project
         id: update_cabal_project
