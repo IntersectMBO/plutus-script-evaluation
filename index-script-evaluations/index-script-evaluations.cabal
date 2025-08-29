@@ -64,7 +64,7 @@ library
     , base                                         >=4.9       && <5
     , base16-bytestring
     , bytestring
-    , cardano-api                                  ^>=10.16
+    , cardano-api
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting                             ^>=0.2.0.0
@@ -98,7 +98,7 @@ executable dump-script-events
   build-depends:
     , base                      >=4.9    && <5
     , bytestring
-    , cardano-api               ^>=10.16
+    , cardano-api
     , index-script-evaluations
     , optparse-applicative
     , path
@@ -119,7 +119,7 @@ executable load-script-events
   build-depends:
     , base                      >=4.9    && <5
     , bytestring
-    , cardano-api               ^>=10.16
+    , cardano-api
     , cardano-ledger-binary
     , cardano-ledger-core
     , index-script-evaluations

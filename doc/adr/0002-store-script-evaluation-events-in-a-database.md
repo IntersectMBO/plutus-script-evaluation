@@ -8,11 +8,11 @@ Accepted
 
 ## Context
 
-Currently, the "dump" job extracts script evaluation events together with the associated cost model parameter values and stores the serialized extracted events in batches in the file system (each \*.event file contains approximately 5000 serialized events).
+Currently, the "dump" job extracts script evaluation events together with the associated cost model parameter values and stores the serialized extracted events in batches in the file system (each `*.event` file contains approximately 5000 serialized events).
 
 While this approach is relatively simple to implement, there are several difficulties and problems associated with it:
 
-- There is no mechanism for referential data consistency, so in the case of a one-to-many relationship between cost model parameter values (one) and script evaluation events (many), the former is stored redundantly in every \*.event file.
+- There is no mechanism for referential data consistency, so in the case of a one-to-many relationship between cost model parameter values (one) and script evaluation events (many), the former is stored redundantly in every `*.event` file.
 
 - Querying and aggregating such serialized data across files requires writing a specialized program to deserialize event data and apply some function over it. Executing such a program takes time.
 
@@ -56,6 +56,7 @@ While this approach is relatively simple to implement, there are several difficu
    - Easier to manage and update compared to a large number of individual files.
 
 8. **Transaction Support**:
+
    - Supports atomic transactions, ensuring data integrity during concurrent operations.
    - Provides rollback capabilities in case of errors.
 
@@ -80,9 +81,9 @@ It doesn't seem like at this scale a full power of time-series databases like In
 
 ## Consequences
 
-1. **Maintainance**:
+1. **Maintenance**:
 
-   - The PosgreSQL database needs to be set up and maintained. There is a green flag
+   - The PostgreSQL database needs to be set up and maintained. There is a green flag
      from @zeme-wana.
 
    - The costs are not expected to be high as the database will not be under the heavy load. The database health will be monitored using Grafana, which offers seamless integration.
@@ -99,7 +100,7 @@ It doesn't seem like at this scale a full power of time-series databases like In
 ## Future considerations
 
 In the beginning not all extracted information is stored in a structured way:
-While event attributes are stored in a dedicated columns, the serialised scripts and their arguments are stored as CBOR blobs.
+While event attributes are stored in dedicated columns, the serialised scripts and their arguments are stored as CBOR blobs.
 
 Storing scripts as CBOR blobs means we can't yet directly answer many interesting questions, e.g.
 
@@ -113,7 +114,7 @@ This ADR is a first step towards answering these questions. Further steps could 
 - Adding more columns to the `script_evaluation_events` table to store the extracted information.
 - Adding more tables to store the extracted information in a structured way.
 
-In case if we decide to store the scripts in a structured way, we'd need to consider the the schema evolution process: we would like to avoid having to update the schema frequently (e.g. every Plutus release).
+In case we decide to store the scripts in a structured way, we'd need to consider the schema evolution process: we would like to avoid having to update the schema frequently (e.g. every Plutus release).
 
 - At the moment, script evaluation events extracted from the mainnet take up approximately 7500 files, totaling around 290 GB.
 
