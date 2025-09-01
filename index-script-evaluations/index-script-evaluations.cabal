@@ -37,6 +37,7 @@ common lang
     TypeOperators
     ViewPatterns
 
+  build-depends:      base ^>=4.18
   ghc-options:
     -O2 -Wall -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
@@ -61,7 +62,6 @@ library
 
   build-depends:
     , aeson
-    , base                                         >=4.9       && <5
     , base16-bytestring
     , bytestring
     , cardano-api
@@ -78,8 +78,8 @@ library
     , ouroboros-network-protocols
     , path
     , path-io
-    , plutus-core                                  ^>=1.45.0.0
-    , plutus-ledger-api                            ^>=1.45.0.0
+    , plutus-core
+    , plutus-ledger-api
     , plutus-ledger-api:plutus-ledger-api-testlib
     , postgresql-simple
     , product-profunctors
@@ -97,7 +97,6 @@ executable dump-script-events
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , base                      >=4.9 && <5
     , bytestring
     , cardano-api
     , index-script-evaluations
@@ -118,9 +117,8 @@ executable load-script-events
     Options
 
   build-depends:
-    , base                      >=4.9       && <5
     , bytestring
-    , cardano-api               ^>=10.17.2
+    , cardano-api               ^>=10.14.1.0
     , cardano-ledger-binary
     , cardano-ledger-core
     , index-script-evaluations
@@ -130,8 +128,8 @@ executable load-script-events
     , optparse-applicative
     , path
     , path-io
-    , plutus-core               ^>=1.45.0.0
-    , plutus-ledger-api         ^>=1.45.0.0
+    , plutus-core
+    , plutus-ledger-api
     , postgresql-simple
     , pretty-show
     , serialise
@@ -146,14 +144,13 @@ library lib-deserialise-scripts
   exposed-modules: Deserialise
   build-depends:
     , aeson
-    , base                      >=4.9       && <5
     , base64
     , bytestring
     , cborg
     , index-script-evaluations
     , mtl
-    , plutus-core               ^>=1.45.0.0
-    , plutus-ledger-api         ^>=1.45.0.0
+    , plutus-core
+    , plutus-ledger-api
     , postgresql-simple
     , some
     , string-interpolate
@@ -168,7 +165,6 @@ executable deserialise-scripts
   other-modules:  Options
   build-depends:
     , aeson
-    , base                     >=4.9       && <5
     , base16-bytestring
     , base64
     , bytestring
@@ -176,8 +172,8 @@ executable deserialise-scripts
     , lib-deserialise-scripts
     , mtl
     , optparse-applicative
-    , plutus-core              ^>=1.45.0.0
-    , plutus-ledger-api        ^>=1.45.0.0
+    , plutus-core
+    , plutus-ledger-api
     , postgresql-simple
     , some
     , string-interpolate
@@ -190,9 +186,7 @@ library lib-materialise-views
   import:          lang
   hs-source-dirs:  materialise-views/lib
   exposed-modules: Materialise
-  build-depends:
-    , base               >=4.9 && <5
-    , postgresql-simple
+  build-depends:   postgresql-simple
 
 -- Executable for materialising views
 executable materialise-views
@@ -202,7 +196,6 @@ executable materialise-views
   ghc-options:    -threaded -with-rtsopts=-N
   other-modules:  Options
   build-depends:
-    , base                   >=4.9 && <5
     , bytestring
     , lib-materialise-views
     , optparse-applicative

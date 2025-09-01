@@ -1,7 +1,7 @@
 module LedgerStates where
 
 import Cardano.Api (BlockNo, FileDirection (In), NodeConfigFile, docToString)
-import Cardano.Api qualified as C
+import Cardano.Api.Shelley qualified as C
 import Control.Exception (throwIO)
 import Control.Monad.Trans.Except (runExceptT)
 import Data.Function ((&))
