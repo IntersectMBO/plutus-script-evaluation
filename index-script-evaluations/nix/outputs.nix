@@ -23,6 +23,8 @@ let
 
   projectFlake = project.flake {};
 
+  apps = projectFlake.apps;
+
   defaultHydraJobs = { 
     ghc966 = projectFlake.hydraJobs.ghc966;
     ghc984 = projectFlake.hydraJobs.ghc984;
@@ -44,6 +46,7 @@ let
 in
 
 {
+  inherit apps;
   inherit packages;
   inherit devShells;
   inherit hydraJobs;
