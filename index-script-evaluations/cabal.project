@@ -22,3 +22,10 @@ packages: .
 
 package postgresql-libpq
   flags: +use-pkg-config
+
+constraints:
+  , hashable == 1.4.7.0
+  , plutus-core == 1.45.0.0
+  , plutus-tx == 1.45.0.0
+  , plutus-tx-plugin == 1.45.0.0
+  , plutus-ledger-api == 1.45.0.0
