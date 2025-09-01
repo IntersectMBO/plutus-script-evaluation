@@ -22,3 +22,7 @@ packages: .
 
 package postgresql-libpq
   flags: +use-pkg-config
+
+allow-newer:
+  -- Resolve QuickCheck version conflicts with Plutus 1.52.0.0
+  ral:QuickCheck, fin:QuickCheck, *:QuickCheck
