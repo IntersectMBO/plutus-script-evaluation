@@ -41,12 +41,55 @@ you can modify various parameters to suit your needs:
 
 ## Github Actions Workflow
 
-Re-evaluates the Plutus script events from Mainnet periodically (once a week).
+Re-evaluates the Plutus script events from Mainnet periodically (once a week) to test compatibility with the latest Plutus development.
 
 The workflow is defined in the `.github/workflows/evaluate.yml` file.
 
-It consists of the following steps:
+### Workflow Overview
 
-- Determine the most recent commit in the `plutus` repository.
-- Add a `source-repository-package` stanza to the `cabal.project` file, pointing to the commit from the previous step.
-- Build the `run-script-evaluations` executable and run it against the local postgresql database (a self-hosted github action runner located on the `plutus-node` server is used for this purpose).
+The workflow runs:
+
+- **Scheduled**: Every Saturday at midnight (UTC)
+- **Manual**: Via workflow dispatch with optional `startFrom` parameter
+- **Environment**: Self-hosted runner on `plutus-node` server with database access
+
+### Workflow Steps
+
+1. **Checkout Repository**: Uses the latest code from this repository
+2. **Update Plutus Dependency**: Executes `run-script-evaluations/add_srp.sh` to:
+   - Fetch the latest commit from `IntersectMBO/plutus` master branch
+   - Generate a `source-repository-package` entry with the latest commit hash and nix SHA
+   - Update `cabal.project` with the new dependency (removing any existing entries for idempotency)
+3. **Run Evaluations**: Builds and executes the `run-script-evaluations` program:
+   - Uses `nix develop` environment for reproducible builds
+   - Connects to the local PostgreSQL database containing Mainnet script events
+   - Processes scripts starting from the specified record (default: 0)
+   - Outputs evaluation results to `evaluation.log`
+
+### Script Management Tool
+
+The `add_srp.sh` script provides robust dependency management with:
+
+- **Command-line options**: `--branch <branch>` (default: master), `--quiet` for CI
+- **Error handling**: Validates dependencies (`jq`, `nix-prefetch-git`) and fetched data
+- **Idempotent operation**: Safely removes existing entries before adding new ones
+- **Atomic updates**: Uses backup/restore mechanism to prevent file corruption
+- **Exit codes**: Returns specific codes for different error conditions (0-5)
+
+### Usage Examples
+
+```bash
+# Default behavior (master branch)
+./run-script-evaluations/add_srp.sh
+
+# Use specific branch
+./run-script-evaluations/add_srp.sh --branch develop
+
+# Quiet mode for CI
+./run-script-evaluations/add_srp.sh --quiet
+
+# Combined options
+./run-script-evaluations/add_srp.sh --branch main --quiet
+```
+
+This automated testing ensures that script evaluations remain compatible as Plutus evolves, providing early detection of breaking changes or performance regressions.
