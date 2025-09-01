@@ -1,78 +1,151 @@
-# Docs for this file: https://github.com/input-output-hk/iogx/blob/main/doc/api.md#mkhaskellprojectinshellargs
-# See `shellArgs` in `mkHaskellProject` in ./project.nix for more details.
+{ inputs, pkgs, lib, project, utils, ghc }:
 
-{
-  repoRoot,
-  inputs,
-  pkgs,
-  lib,
-  system,
-}:
+let
 
-# Each flake variant defined in your project.nix project will yield a separate
-# shell. If no flake variants are defined, then cabalProject is the original project.
-cabalProject: {
-  name = "index-script-evaluations";
+  allTools = {
+    "ghc966".cabal                    = project.projectVariants.ghc966.tool "cabal" "latest";
+    "ghc966".cabal-fmt                = project.projectVariants.ghc966.tool "cabal-fmt" "latest";
+    "ghc966".haskell-language-server  = project.projectVariants.ghc966.tool "haskell-language-server" "latest";
+    "ghc966".stylish-haskell          = project.projectVariants.ghc966.tool "stylish-haskell" "latest";
+    "ghc966".fourmolu                 = project.projectVariants.ghc966.tool "fourmolu" "latest";
+    "ghc966".hlint                    = project.projectVariants.ghc966.tool "hlint" "latest";
 
-  packages = [
-    pkgs.figlet
+    "ghc984".cabal                    = project.projectVariants.ghc984.tool "cabal" "latest";
+    "ghc984".cabal-fmt                = project.projectVariants.ghc984.tool "cabal-fmt" "latest";
+    "ghc984".haskell-language-server  = project.projectVariants.ghc984.tool "haskell-language-server" "latest";
+    "ghc984".stylish-haskell          = project.projectVariants.ghc984.tool "stylish-haskell" "latest";
+    "ghc984".fourmolu                 = project.projectVariants.ghc984.tool "fourmolu" "latest";
+    "ghc984".hlint                    = project.projectVariants.ghc984.tool "hlint" "latest";
+
+    "ghc9102".cabal                   = project.projectVariants.ghc9102.tool "cabal" "latest";
+    "ghc9102".cabal-fmt               = project.projectVariants.ghc966.tool  "cabal-fmt" "latest"; # cabal-fmt not buildable with ghc9102
+    "ghc9102".haskell-language-server = project.projectVariants.ghc9102.tool "haskell-language-server" "latest";
+    "ghc9102".stylish-haskell         = project.projectVariants.ghc9102.tool "stylish-haskell" "latest";
+    "ghc9102".fourmolu                = project.projectVariants.ghc9102.tool "fourmolu" "latest";
+    "ghc9102".hlint                   = project.projectVariants.ghc9102.tool "hlint" "latest";
+
+    "ghc9122".cabal                   = project.projectVariants.ghc9122.tool "cabal" "latest";
+    "ghc9122".cabal-fmt               = project.projectVariants.ghc966.tool  "cabal-fmt" "latest"; # cabal-fmt not buildable with ghc9122
+    "ghc9122".haskell-language-server = project.projectVariants.ghc9122.tool "haskell-language-server" "latest";
+    "ghc9122".stylish-haskell         = project.projectVariants.ghc9122.tool "stylish-haskell" "latest";
+    "ghc9122".fourmolu                = project.projectVariants.ghc9122.tool "fourmolu" "latest";
+    "ghc9122".hlint                   = project.projectVariants.ghc9122.tool "hlint" "latest";
+  };
+
+  tools = allTools.${ghc};
+
+  preCommitCheck = inputs.pre-commit-hooks.lib.${pkgs.system}.run {
+
+    src = lib.cleanSources ../.;
+    
+    hooks = {
+      nixpkgs-fmt = {
+        enable = false;
+        package = pkgs.nixpkgs-fmt;
+      };
+      cabal-fmt = {
+        enable = true;
+        package = tools.cabal-fmt;
+      };
+      stylish-haskell = {
+        enable = false;
+        package = tools.stylish-haskell;
+        args = [ "--config" ".stylish-haskell.yaml" ];
+      };
+      fourmolu = {
+        enable = true;
+        package = tools.fourmolu;
+        args = [ "--mode" "inplace" ];
+      };
+      hlint = {
+        enable = true;
+        package = tools.hlint;
+        args = [ "--hint" ".hlint.yaml" ];
+      };
+      shellcheck = {
+        enable = false;
+        package = pkgs.shellcheck;
+      };
+    };
+  };
+
+  linuxPkgs = lib.optionals pkgs.hostPlatform.isLinux [
   ];
 
-  scripts = {
-    dump = {
-      description = "Dump Plutus Script events from mainnet";
-      group = "general";
-      exec = ''
-        cabal run dump-script-events -- \
-          --mainnet \
-          --socket-path "$CARDANO_NODE_SOCKET_PATH" \
-          --config "$CARDANO_NODE_CONFIG_PATH" \
-          --events-per-file 5000 \
-          --event-dir dumps/events \
-          --checkpoint-dir dumps/checkpoints \
-      '';
-    };
+  darwinPkgs = lib.optionals pkgs.hostPlatform.isDarwin [
+  ];
 
-    load = {
-      description = "Load Plutus Script events into a database";
-      group = "general";
-      exec = ''
-        cabal run load-script-events -- \
-          --mainnet \
-          --socket-path "$CARDANO_NODE_SOCKET_PATH" \
-          --config "$CARDANO_NODE_CONFIG_PATH" \
-          --checkpoint-dir dumps/checkpoints \
-          --database-conn-str "$DB_CONN_STRING" 
-      '';
-    };
+  commonPkgs = [
+    tools.haskell-language-server
+    tools.stylish-haskell
+    tools.fourmolu
+    tools.cabal
+    tools.hlint
+    tools.cabal-fmt
 
-    deserialise = {
-      description = "Deserialise Plutus Scripts from mainnet";
-      group = "general";
-      exec = ''
-        cabal run deserialise-scripts -- --database-conn-str "$DB_CONN_STRING"
-      '';
-    };
+    pkgs.shellcheck
+    pkgs.nixpkgs-fmt
+    pkgs.github-cli
+    pkgs.act
+    pkgs.bzip2
+    pkgs.gawk
+    pkgs.zlib
+    pkgs.cacert
+    pkgs.curl
+    pkgs.bash
+    pkgs.git
+    pkgs.which
+    pkgs.figlet
+    pkgs.nix-prefetch-git
+  ];
 
-    materialise = {
-      description = "Materialise database views";
-      group = "general";
-      exec = ''
-        cabal run materialise-views -- --database-conn-str "$DB_CONN_STRING"
-      '';
-    };
-  };
-
-  shellHook = ''
-    figlet "Plutus Script Evaluations: Indexer"
+  # Define scripts from the original shell.nix
+  dumpScript = pkgs.writeShellScriptBin "dump" ''
+    cabal run dump-script-events -- \
+      --mainnet \
+      --socket-path "$CARDANO_NODE_SOCKET_PATH" \
+      --config "$CARDANO_NODE_CONFIG_PATH" \
+      --events-per-file 5000 \
+      --event-dir dumps/events \
+      --checkpoint-dir dumps/checkpoints
   '';
 
-  preCommit = {
-    cabal-fmt.enable = true;
-    stylish-haskell.enable = false;
-    fourmolu.enable = true;
-    hlint.enable = true;
-    editorconfig-checker.enable = false;
-    nixpkgs-fmt.enable = false;
+  loadScript = pkgs.writeShellScriptBin "load" ''
+    cabal run load-script-events -- \
+      --mainnet \
+      --socket-path "$CARDANO_NODE_SOCKET_PATH" \
+      --config "$CARDANO_NODE_CONFIG_PATH" \
+      --checkpoint-dir dumps/checkpoints \
+      --database-conn-str "$DB_CONN_STRING"
+  '';
+
+  deserialiseScript = pkgs.writeShellScriptBin "deserialise" ''
+    cabal run deserialise-scripts -- --database-conn-str "$DB_CONN_STRING"
+  '';
+
+  materialiseScript = pkgs.writeShellScriptBin "materialise" ''
+    cabal run materialise-views -- --database-conn-str "$DB_CONN_STRING"
+  '';
+
+  shell = project.shellFor {
+    name = "index-script-evaluations-shell-${project.args.compiler-nix-name}";
+
+    buildInputs = lib.concatLists [
+      commonPkgs
+      darwinPkgs
+      linuxPkgs
+      [ dumpScript loadScript deserialiseScript materialiseScript ]
+    ];
+
+    withHoogle = false;
+
+    shellHook = ''
+      ${preCommitCheck.shellHook}
+      figlet "Plutus Script Evaluations: Indexer"
+      export PS1="\n\[\033[1;32m\][nix-shell:\w]\$\[\033[0m\] "
+    '';
   };
-}
+
+in
+
+shell
