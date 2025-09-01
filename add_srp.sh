@@ -21,3 +21,5 @@ EOM
 
 # Append to cabal.project
 echo "$NEW_SECTION" >> cabal.project
+
+echo -e "Added new S-R-P section:\n\n$NEW_SECTION"

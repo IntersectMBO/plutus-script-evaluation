@@ -1,6 +1,6 @@
 module Render where
 
-import Cardano.Api.Shelley qualified as C
+import Cardano.Api qualified as C
 import Data.ByteString.Base16 qualified as B16
 import Data.String.Interpolate (__i)
 import Data.Text qualified as Text

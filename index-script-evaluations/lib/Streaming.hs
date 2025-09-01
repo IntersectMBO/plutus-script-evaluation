@@ -6,7 +6,7 @@ module Streaming (
 ) where
 
 import Cardano.Api (SocketPath)
-import Cardano.Api.ChainSync.Client (
+import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (SendMsgDone, SendMsgFindIntersect, SendMsgRequestNext),
   ClientStIntersect (
     ClientStIntersect,
@@ -15,7 +15,7 @@ import Cardano.Api.ChainSync.Client (
   ),
   ClientStNext (ClientStNext, recvMsgRollBackward, recvMsgRollForward),
  )
-import Cardano.Api.Shelley qualified as C
+import Cardano.Api qualified as C
 import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.Slot (WithOrigin (At, Origin), withOrigin)
 import Control.Exception (Exception, throw)

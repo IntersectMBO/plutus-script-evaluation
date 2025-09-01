@@ -3,7 +3,7 @@ module Dump (
   Options (..),
 ) where
 
-import Cardano.Api.Shelley (
+import Cardano.Api (
   FileDirection (In),
   NetworkId,
   NodeConfigFile,

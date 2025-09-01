@@ -1,6 +1,6 @@
 module LedgerEvents.DbLoader where
 
-import Cardano.Api.Shelley (
+import Cardano.Api (
   BlockNo (..),
   LedgerEvent (..),
   SlotNo (..),

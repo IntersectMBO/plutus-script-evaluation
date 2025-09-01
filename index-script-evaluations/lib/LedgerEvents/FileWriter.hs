@@ -1,7 +1,7 @@
 module LedgerEvents.FileWriter where
 
 import Cardano.Api.Ledger (StrictMaybe (..), strictMaybeToMaybe)
-import Cardano.Api.Shelley (
+import Cardano.Api (
   BlockNo,
   LedgerEvent (FailedPlutusScript, SuccessfulPlutusScript),
  )

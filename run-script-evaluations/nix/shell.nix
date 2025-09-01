@@ -95,6 +95,7 @@ let
     pkgs.bash
     pkgs.git
     pkgs.which
+    pkgs.nix-prefetch-git
   ];
 
   shell = project.shellFor {

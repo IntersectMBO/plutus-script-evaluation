@@ -30,11 +30,11 @@ instance CBOR.Serialise Checkpoint where
     mconcat
       [ CBOR.encodeListLen 2
       , encodeChainPoint chainPoint
-      , Cardano.encodeLedgerState ledgerState
+      , Cardano.encodeLedgerState  ledgerState
       ]
   decode = do
     CBOR.decodeListLenOf 2
-    Checkpoint <$> decodeChainPoint <*> Cardano.decodeLedgerState
+    Checkpoint <$> decodeChainPoint <*> Cardano.decodeLedgerState 
 
 encodeChainPoint :: Cardano.ChainPoint -> CBOR.Encoding
 encodeChainPoint p = CBOR.encode $ case p of

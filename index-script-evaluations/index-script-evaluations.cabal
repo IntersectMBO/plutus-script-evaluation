@@ -64,10 +64,10 @@ library
     , base                                         >=4.9       && <5
     , base16-bytestring
     , bytestring
-    , cardano-api                                  ^>=10.16
+    , cardano-api
     , cardano-ledger-alonzo
     , cardano-ledger-core
-    , cardano-slotting                             ^>=0.2.0.0
+    , cardano-slotting
     , deepseq
     , dlist
     , int-cast
@@ -75,10 +75,11 @@ library
     , opaleye
     , ouroboros-consensus
     , ouroboros-consensus-cardano
+    , ouroboros-network-protocols
     , path
     , path-io
-    , plutus-core
-    , plutus-ledger-api
+    , plutus-core                                  ^>=1.45.0.0
+    , plutus-ledger-api                            ^>=1.45.0.0
     , plutus-ledger-api:plutus-ledger-api-testlib
     , postgresql-simple
     , product-profunctors
@@ -96,9 +97,9 @@ executable dump-script-events
   ghc-options:    -threaded -rtsopts
   other-modules:  Options
   build-depends:
-    , base                      >=4.9    && <5
+    , base                      >=4.9 && <5
     , bytestring
-    , cardano-api               ^>=10.16
+    , cardano-api
     , index-script-evaluations
     , optparse-applicative
     , path
@@ -117,9 +118,9 @@ executable load-script-events
     Options
 
   build-depends:
-    , base                      >=4.9    && <5
+    , base                      >=4.9       && <5
     , bytestring
-    , cardano-api               ^>=10.16
+    , cardano-api               ^>=10.17.2
     , cardano-ledger-binary
     , cardano-ledger-core
     , index-script-evaluations
@@ -129,8 +130,8 @@ executable load-script-events
     , optparse-applicative
     , path
     , path-io
-    , plutus-core
-    , plutus-ledger-api
+    , plutus-core               ^>=1.45.0.0
+    , plutus-ledger-api         ^>=1.45.0.0
     , postgresql-simple
     , pretty-show
     , serialise
@@ -145,14 +146,14 @@ library lib-deserialise-scripts
   exposed-modules: Deserialise
   build-depends:
     , aeson
-    , base                      >=4.9 && <5
+    , base                      >=4.9       && <5
     , base64
     , bytestring
     , cborg
     , index-script-evaluations
     , mtl
-    , plutus-core
-    , plutus-ledger-api
+    , plutus-core               ^>=1.45.0.0
+    , plutus-ledger-api         ^>=1.45.0.0
     , postgresql-simple
     , some
     , string-interpolate
@@ -167,7 +168,7 @@ executable deserialise-scripts
   other-modules:  Options
   build-depends:
     , aeson
-    , base                     >=4.9 && <5
+    , base                     >=4.9       && <5
     , base16-bytestring
     , base64
     , bytestring
@@ -175,8 +176,8 @@ executable deserialise-scripts
     , lib-deserialise-scripts
     , mtl
     , optparse-applicative
-    , plutus-core
-    , plutus-ledger-api
+    , plutus-core              ^>=1.45.0.0
+    , plutus-ledger-api        ^>=1.45.0.0
     , postgresql-simple
     , some
     , string-interpolate
