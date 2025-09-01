@@ -1,6 +1,6 @@
 module FileStorage where
 
-import Cardano.Api.Shelley (
+import Cardano.Api (
   ChainPoint,
   SlotNo (SlotNo),
   chainPointToHeaderHash,
