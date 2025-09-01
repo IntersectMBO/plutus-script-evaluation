@@ -7,7 +7,7 @@ import Cardano.Slotting.Slot (SlotNo (..), unSlotNo)
 import Data.Bits (Bits (shiftR, xor, (.&.)))
 import Data.Coerce (coerce)
 import Data.Digest.Murmur64 (Hash64, asWord64)
-import Data.Int (Int16, Int64)
+import Data.Int (Int64)
 import Data.IntCast (intCast, intCastIso)
 import Data.Maybe (maybeToList)
 import Data.Profunctor.Product.Default (Default (..))
@@ -36,12 +36,6 @@ import PlutusLedgerApi.Common (
   SatInt,
  )
 import Unsafe.Coerce (unsafeCoerce)
-
-instance Default ToFields Int16 (Field SqlInt2) where
-  def = toToFields (literalColumn . IntegerLit . fromIntegral)
-
-instance DefaultFromField SqlInt2 Int16 where
-  defaultFromField = fromPGSFromField
 
 instance Default ToFields PlutusLedgerLanguage (Field SqlInt2) where
   -- DB counts constructors from 1 while derived Enum instance counts from 0,
