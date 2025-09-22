@@ -1,0 +1,88 @@
+# This workflow sends a message to the plutus-ci channel whenever a status check fails, 
+# and tries to notify the author of the commit that caused the failure.
+#
+# This workflow triggers whenever a workflow run or a check run is completed.
+
+name: "📮 Slack Message Broker"
+
+on:
+  check_run:
+    types: [completed]
+  workflow_run:
+    workflows: 
+      - "Evaluate mainnet scripts"
+
+jobs:
+  Send:
+    runs-on: [ubuntu-latest]
+    steps:
+      - name: Prepare Slack Message
+        uses: actions/github-script@v7.1.0
+        id: prepare-slack-message
+
+        with:
+          script: | 
+            const isWorkflowRunEvent = "${{ github.event_name }}" == "workflow_run";
+            const isCheckRunEvent = "${{ github.event_name }}" == "check_run";
+            const slackMembers = "<@U02V796524S>";
+
+            let message;
+            let shouldSendMessage;
+         
+            function handleWorkflowRunEvent() {
+              const name = "${{ github.event.workflow_run.name }}";
+              const url = "${{ github.event.workflow_run.html_url }}";
+              const status = "${{ github.event.workflow_run.status }}";
+              const conclusion = "${{ github.event.workflow_run.conclusion }}";
+              const failureConclusions = [ "failure", "null", "action_required", "neutral", "timed_out" ];
+
+              if (failureConclusions.includes(conclusion)) {
+                message = `❌ ${name} \`${conclusion}\` <${url}|View Logs> ${slackMembers}`;
+                shouldSendMessage = true;
+              } else {
+                message = `${name} \`${status}\` \`${conclusion}\` <${url}|View Logs> ${slackMembers}`;
+                shouldSendMessage = false;
+              }
+            }
+
+            function handleCheckRunEvent() {
+              const name = "${{ github.event.check_run.name }}";
+              const status = "${{ github.event.check_run.status }}";
+              const conclusion = "${{ github.event.check_run.conclusion }}";
+              const url = "${{ github.event.check_run.html_url }}";
+
+              if (conclusion == "failure") {
+                message = `❌ ${name} \`${conclusion}\` <${url}|View Logs> ${slackMembers}`;
+                shouldSendMessage = true;
+              } else {
+                message = `${name} \`${status}\` \`${conclusion}\` <${url}|View Logs> ${slackMembers}`;
+                shouldSendMessage = false;
+              }
+            }
+
+
+            if (isWorkflowRunEvent) { 
+              handleWorkflowRunEvent();
+            } else if (isCheckRunEvent) { 
+              handleCheckRunEvent();
+            } else {
+              message = `Unknown event: ${{ github.event_name }}`;
+              shouldSendMessage = true;
+            }
+
+            core.setOutput("message", message); 
+            core.setOutput("shouldSendMessage", shouldSendMessage); 
+
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v2.1.0
+        if: ${{ steps.prepare-slack-message.outputs.shouldSendMessage == 'true' }}
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            "channel": "C07A1GSNZEE",
+            "text": "${{ steps.prepare-slack-message.outputs.message }}",
+
+
+
