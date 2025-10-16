@@ -6,12 +6,13 @@ module Main where
 
 import Codec.Serialise (deserialise)
 import Control.Concurrent (myThreadId)
-import Control.Exception (AsyncException (UserInterrupt), bracket, catch, throwTo, try)
+import Control.Exception (AsyncException (UserInterrupt), bracket, catch, throwIO, throwTo, try)
 import Control.Monad (forM_, when)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
+import Data.List (foldl')
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import Database.PostgreSQL.Simple qualified as PG
@@ -170,7 +171,7 @@ collectStatisticsSample conn samplePercent = do
               <> show ledgerLang
           exitFailure
         Just values ->
-          let newAcc = foldl updateAccumulator acc (analyzeValue <$> values)
+          let newAcc = foldl' updateAccumulator acc (analyzeValue <$> values)
           in pure (newAcc, newRowCount)
 
 -- | Collect statistics from all rows with optional checkpointing
@@ -233,11 +234,9 @@ collectStatisticsFull conn maybeCheckpointFile = do
       -- The libpq error during cleanup is unavoidable but harmless
       (finalAcc, _, _) <- readIORef stateRef
       pure finalAcc
-    Left otherException -> do
+    Left otherException ->
       -- Re-throw other async exceptions (StackOverflow, HeapOverflow, etc.)
-      throwTo mainThreadId otherException
-      (finalAcc, _, _) <- readIORef stateRef
-      pure finalAcc
+      throwIO otherException
     Right (finalAcc, _) -> pure finalAcc
   where
     -- Signal handler to save checkpoint and exit gracefully
@@ -279,7 +278,7 @@ collectStatisticsFull conn maybeCheckpointFile = do
               <> show ledgerLang
           exitFailure
         Just values -> do
-          let newAcc = foldl updateAccumulator acc (analyzeValue <$> values)
+          let newAcc = foldl' updateAccumulator acc (analyzeValue <$> values)
           -- Update state ref for signal handler
           writeIORef stateRef (newAcc, pk, totalRowsProcessed)
           pure (newAcc, newRowCount)

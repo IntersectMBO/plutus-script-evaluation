@@ -284,8 +284,14 @@ printReport MkStatsAccumulator{..} = do
   printf "Total Values analyzed: %d\n\n" saCount
 
   when (saCount > 0) do
-    let policyMean = fromIntegral saPolicySum / fromIntegral saCount :: Double
-        tokenMean = fromIntegral saTokenSum / fromIntegral saCount :: Double
+    let policyMean =
+          if saCount > 0
+            then fromIntegral saPolicySum / fromIntegral saCount :: Double
+            else 0.0
+        tokenMean =
+          if saCount > 0
+            then fromIntegral saTokenSum / fromIntegral saCount :: Double
+            else 0.0
 
     putStrLn "---------------------------------------------------------------------"
     putStrLn "Policies per Value:"
@@ -392,8 +398,14 @@ writeTextReport filePath acc = do
 formatTextReport :: StatsAccumulator -> String
 formatTextReport MkStatsAccumulator{..} =
   let
-    policyMean = fromIntegral saPolicySum / fromIntegral saCount :: Double
-    tokenMean = fromIntegral saTokenSum / fromIntegral saCount :: Double
+    policyMean =
+      if saCount > 0
+        then fromIntegral saPolicySum / fromIntegral saCount :: Double
+        else 0.0
+    tokenMean =
+      if saCount > 0
+        then fromIntegral saTokenSum / fromIntegral saCount :: Double
+        else 0.0
     policyPercentiles = computePercentiles saPolicyDistribution [50, 90, 95, 99]
     tokenPercentiles = computePercentiles saTokenDistribution [50, 90, 95, 99]
     policyHistogram = createHistogram saPolicyDistribution
