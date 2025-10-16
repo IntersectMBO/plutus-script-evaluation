@@ -75,29 +75,33 @@ data QuantityBoundary
   deriving stock (Show, Eq, Ord, Enum, Bounded, Generic)
   deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 
+-- | Maximum value to track in distributions (values above are grouped into overflow)
+maxDistributionValue :: Int
+maxDistributionValue = 500
+
 -- | Accumulator for aggregate statistics
 data StatsAccumulator = MkStatsAccumulator
-  { saCount :: Int64
+  { saCount :: !Int64
   -- ^ Total number of Values analyzed
-  , saPolicyMin :: Int
-  , saPolicyMax :: Int
-  , saPolicySum :: Int64
+  , saPolicyMin :: !Int
+  , saPolicyMax :: !Int
+  , saPolicySum :: !Int64
   -- ^ Sum for computing mean
-  , saPolicyDistribution :: Map Int Int64
-  -- ^ Distribution: policy count -> frequency
-  , saTokenMin :: Int
-  , saTokenMax :: Int
-  , saTokenSum :: Int64
+  , saPolicyDistribution :: !(Map Int Int64)
+  -- ^ Distribution: policy count -> frequency (capped at maxDistributionValue)
+  , saTokenMin :: !Int
+  , saTokenMax :: !Int
+  , saTokenSum :: !Int64
   -- ^ Sum for computing mean
-  , saTokenDistribution :: Map Int Int64
-  -- ^ Distribution: token count -> frequency
-  , saQuantityBoundaries :: Map QuantityBoundary Int64
+  , saTokenDistribution :: !(Map Int Int64)
+  -- ^ Distribution: token count -> frequency (capped at maxDistributionValue)
+  , saQuantityBoundaries :: !(Map QuantityBoundary Int64)
   -- ^ Distribution of quantities by power-of-2 boundaries
-  , saQuantityCount :: Int64
+  , saQuantityCount :: !Int64
   -- ^ Total number of quantities analyzed
-  , saQuantitiesNear2Pow64 :: Int64
+  , saQuantitiesNear2Pow64 :: !Int64
   -- ^ Count of quantities >= 99% of 2^64
-  , saQuantitiesNear2Pow128 :: Int64
+  , saQuantitiesNear2Pow128 :: !Int64
   -- ^ Count of quantities >= 99% of 2^128
   }
   deriving stock (Show, Eq, Generic)
@@ -200,18 +204,21 @@ isNear2Pow128 q =
 updateAccumulator :: StatsAccumulator -> ValueStats -> StatsAccumulator
 updateAccumulator acc MkValueStats{vsPolicyCount, vsTokenCount, vsQuantityBoundaries, vsQuantityCount, vsQuantitiesNear2Pow64, vsQuantitiesNear2Pow128} =
   let !quantityBoundaryUpdates = Map.unionWith (+) (saQuantityBoundaries acc) vsQuantityBoundaries
+      -- Cap distribution values to prevent unbounded map growth
+      !cappedPolicyCount = min vsPolicyCount maxDistributionValue
+      !cappedTokenCount = min vsTokenCount maxDistributionValue
    in acc
         { saCount = saCount acc + 1
         , saPolicyMin = min (saPolicyMin acc) vsPolicyCount
         , saPolicyMax = max (saPolicyMax acc) vsPolicyCount
         , saPolicySum = saPolicySum acc + fromIntegral vsPolicyCount
         , saPolicyDistribution =
-            Map.insertWith (+) vsPolicyCount 1 (saPolicyDistribution acc)
+            Map.insertWith (+) cappedPolicyCount 1 (saPolicyDistribution acc)
         , saTokenMin = min (saTokenMin acc) vsTokenCount
         , saTokenMax = max (saTokenMax acc) vsTokenCount
         , saTokenSum = saTokenSum acc + fromIntegral vsTokenCount
         , saTokenDistribution =
-            Map.insertWith (+) vsTokenCount 1 (saTokenDistribution acc)
+            Map.insertWith (+) cappedTokenCount 1 (saTokenDistribution acc)
         , saQuantityBoundaries = quantityBoundaryUpdates
         , saQuantityCount = saQuantityCount acc + vsQuantityCount
         , saQuantitiesNear2Pow64 = saQuantitiesNear2Pow64 acc + vsQuantitiesNear2Pow64
