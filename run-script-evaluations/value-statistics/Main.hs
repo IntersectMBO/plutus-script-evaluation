@@ -171,7 +171,8 @@ collectStatisticsSample conn samplePercent = do
               <> show ledgerLang
           exitFailure
         Just values ->
-          let newAcc = foldl' updateAccumulator acc (analyzeValue <$> values)
+          -- Process values eagerly to avoid building up lazy list of ValueStats
+          let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
           in pure (newAcc, newRowCount)
 
 -- | Collect statistics from all rows with optional checkpointing
@@ -278,7 +279,8 @@ collectStatisticsFull conn maybeCheckpointFile = do
               <> show ledgerLang
           exitFailure
         Just values -> do
-          let newAcc = foldl' updateAccumulator acc (analyzeValue <$> values)
+          -- Process values eagerly to avoid building up lazy list of ValueStats
+          let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
           -- Update state ref for signal handler
           writeIORef stateRef (newAcc, pk, totalRowsProcessed)
           pure (newAcc, newRowCount)
