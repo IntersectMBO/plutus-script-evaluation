@@ -44,7 +44,7 @@ common lang
 
 executable run-script-evaluations
   import:         lang
-  hs-source-dirs: src
+  hs-source-dirs: run-evaluations
   main-is:        Main.hs
   ghc-options:    -threaded -with-rtsopts=-N
   other-modules:
@@ -69,4 +69,32 @@ executable run-script-evaluations
     , time
     , transformers
     , unliftio
+    , with-utf8
+
+executable value-statistics
+  import:         lang
+  hs-source-dirs: value-statistics, run-evaluations
+  main-is:        Main.hs
+  ghc-options:    -threaded -with-rtsopts=-N
+  other-modules:
+    Database
+    Database.PostgreSQL.Simple.Orphans
+    Options
+    ValueStats
+
+  build-depends:
+    , aeson
+    , aeson-pretty
+    , base                  >=4.9 && <5
+    , bytestring
+    , containers
+    , optparse-applicative
+    , plutus-core           >=1.52.0.0
+    , plutus-ledger-api     >=1.52.0.0
+    , plutus-tx             >=1.52.0.0
+    , postgresql-simple
+    , serialise
+    , text
+    , time
+    , unix
     , with-utf8
