@@ -26,8 +26,8 @@ import Data.Aeson (
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Int (Int64)
-import Data.List (sort)
-import Data.Map (Map)
+import Data.List (foldl', sort)
+import Data.Map.Strict (Map)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
 import Data.Time (getCurrentTime)
@@ -42,12 +42,18 @@ import Text.Printf (printf)
 
 -- | Statistics for a single Value
 data ValueStats = MkValueStats
-  { vsPolicyCount :: Int
+  { vsPolicyCount :: !Int
   -- ^ Number of unique policies (currency symbols)
-  , vsTokenCount :: Int
+  , vsTokenCount :: !Int
   -- ^ Total number of tokens (policy + token name pairs)
-  , vsQuantities :: [Integer]
-  -- ^ All token quantities in this Value
+  , vsQuantityBoundaries :: !(Map QuantityBoundary Int64)
+  -- ^ Distribution of quantities by power-of-2 boundaries
+  , vsQuantityCount :: !Int64
+  -- ^ Number of quantities in this Value
+  , vsQuantitiesNear2Pow64 :: !Int64
+  -- ^ Count of quantities >= 99% of 2^64
+  , vsQuantitiesNear2Pow128 :: !Int64
+  -- ^ Count of quantities >= 99% of 2^128
   }
   deriving stock (Show, Eq)
 
@@ -141,10 +147,24 @@ analyzeValue (V1.Value valueMap) =
         , (_, quantity) <- AssocMap.toList tokenMap
         ]
       tokenCount = length quantities
+      -- Process quantities immediately in a single pass to avoid accumulating the list
+      -- We use foldl' to ensure strict evaluation and memory release
+      (quantityBoundaries, near64Count, near128Count) =
+        foldl'
+          (\(!boundaries, !n64, !n128) q ->
+            let !boundary = classifyQuantity q
+                !is64 = if isNear2Pow64 q then 1 else 0
+                !is128 = if isNear2Pow128 q then 1 else 0
+             in (Map.insertWith (+) boundary 1 boundaries, n64 + is64, n128 + is128))
+          (Map.empty, 0, 0)
+          quantities
    in MkValueStats
         { vsPolicyCount = policyCount
         , vsTokenCount = tokenCount
-        , vsQuantities = quantities
+        , vsQuantityBoundaries = quantityBoundaries
+        , vsQuantityCount = fromIntegral tokenCount
+        , vsQuantitiesNear2Pow64 = near64Count
+        , vsQuantitiesNear2Pow128 = near128Count
         }
 
 -- | Classify a quantity by its power-of-2 boundary range
@@ -178,14 +198,8 @@ isNear2Pow128 q =
 
 -- | Update accumulator with new statistics
 updateAccumulator :: StatsAccumulator -> ValueStats -> StatsAccumulator
-updateAccumulator acc MkValueStats{vsPolicyCount, vsTokenCount, vsQuantities} =
-  let quantityBoundaryUpdates =
-        foldr
-          (\q m -> Map.insertWith (+) (classifyQuantity q) 1 m)
-          (saQuantityBoundaries acc)
-          vsQuantities
-      near64Count = fromIntegral $ length $ filter isNear2Pow64 vsQuantities
-      near128Count = fromIntegral $ length $ filter isNear2Pow128 vsQuantities
+updateAccumulator acc MkValueStats{vsPolicyCount, vsTokenCount, vsQuantityBoundaries, vsQuantityCount, vsQuantitiesNear2Pow64, vsQuantitiesNear2Pow128} =
+  let !quantityBoundaryUpdates = Map.unionWith (+) (saQuantityBoundaries acc) vsQuantityBoundaries
    in acc
         { saCount = saCount acc + 1
         , saPolicyMin = min (saPolicyMin acc) vsPolicyCount
@@ -199,9 +213,9 @@ updateAccumulator acc MkValueStats{vsPolicyCount, vsTokenCount, vsQuantities} =
         , saTokenDistribution =
             Map.insertWith (+) vsTokenCount 1 (saTokenDistribution acc)
         , saQuantityBoundaries = quantityBoundaryUpdates
-        , saQuantityCount = saQuantityCount acc + fromIntegral (length vsQuantities)
-        , saQuantitiesNear2Pow64 = saQuantitiesNear2Pow64 acc + near64Count
-        , saQuantitiesNear2Pow128 = saQuantitiesNear2Pow128 acc + near128Count
+        , saQuantityCount = saQuantityCount acc + vsQuantityCount
+        , saQuantitiesNear2Pow64 = saQuantitiesNear2Pow64 acc + vsQuantitiesNear2Pow64
+        , saQuantitiesNear2Pow128 = saQuantitiesNear2Pow128 acc + vsQuantitiesNear2Pow128
         }
 
 -- | Compute percentiles from a distribution
