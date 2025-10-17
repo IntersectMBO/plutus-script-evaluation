@@ -33,6 +33,7 @@ import Data.Maybe (mapMaybe)
 import Data.Time (getCurrentTime)
 import Data.Time.Format.ISO8601 (iso8601Show)
 import GHC.Generics (Generic)
+import NoThunks.Class (NoThunks)
 import PlutusLedgerApi.V1.Value qualified as V1
 import PlutusTx.AssocMap qualified as AssocMap
 import Text.Printf (printf)
@@ -73,7 +74,7 @@ data QuantityBoundary
   | Pos127 -- (2^64, 2^127]
   | PosOverflow -- > 2^127
   deriving stock (Show, Eq, Ord, Enum, Bounded, Generic)
-  deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
+  deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey, NoThunks)
 
 -- | Maximum value to track in distributions (values above are grouped into overflow)
 maxDistributionValue :: Int
@@ -105,7 +106,7 @@ data StatsAccumulator = MkStatsAccumulator
   -- ^ Count of quantities >= 99% of 2^128
   }
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON, FromJSON, NoThunks)
 
 -- | Checkpoint wrapper with metadata for resuming analysis
 data Checkpoint = MkCheckpoint

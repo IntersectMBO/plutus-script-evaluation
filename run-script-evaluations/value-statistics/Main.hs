@@ -10,7 +10,7 @@ import Control.Exception (AsyncException (UserInterrupt), bracket, catch, throwI
 import Control.Monad (forM_, when)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.IORef.Strict (StrictIORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.List (foldl')
 import Data.Text qualified as Text
@@ -18,7 +18,9 @@ import Data.Text.Encoding (decodeUtf8)
 import Database.PostgreSQL.Simple qualified as PG
 import Database.PostgreSQL.Simple.Orphans ()
 import Database.PostgreSQL.Simple.Types (Only (..))
+import GHC.Generics (Generic)
 import Main.Utf8 (withUtf8)
+import NoThunks.Class (NoThunks)
 import Options (Options (..), parserInfo)
 import Options.Applicative (execParser)
 import PlutusLedgerApi.Common (Data, PlutusLedgerLanguage (..))
@@ -48,6 +50,8 @@ data FoldState = MkFoldState
   { fsAccumulator :: !StatsAccumulator
   , fsRowCount :: !Int64
   }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
 
 -- | Strict state for checkpointing
 data CheckpointState = MkCheckpointState
@@ -55,6 +59,8 @@ data CheckpointState = MkCheckpointState
   , csLastPk :: !Int64
   , csTotalRows :: !Int64
   }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
 
 --------------------------------------------------------------------------------
 -- Main Entry Point ------------------------------------------------------------
@@ -268,7 +274,7 @@ collectStatisticsFull conn maybeCheckpointFile = do
   processRowFull
     :: Int64
     -> Int64
-    -> IORef CheckpointState
+    -> StrictIORef CheckpointState
     -> Maybe FilePath
     -> FoldState
     -> (Int64, PlutusLedgerLanguage, BS.ByteString)
