@@ -41,6 +41,22 @@ import ValueStats (
  )
 
 --------------------------------------------------------------------------------
+-- Data Types ------------------------------------------------------------------
+
+-- | Strict accumulator state for PostgreSQL fold
+data FoldState = MkFoldState
+  { fsAccumulator :: !StatsAccumulator
+  , fsRowCount :: !Int64
+  }
+
+-- | Strict state for checkpointing
+data CheckpointState = MkCheckpointState
+  { csAccumulator :: !StatsAccumulator
+  , csLastPk :: !Int64
+  , csTotalRows :: !Int64
+  }
+
+--------------------------------------------------------------------------------
 -- Main Entry Point ------------------------------------------------------------
 
 main :: IO ()
@@ -55,7 +71,6 @@ main = withUtf8 do
     -- Report-only mode: checkpoint file without database
     (Nothing, Just checkpointPath) ->
       generateReportFromCheckpoint checkpointPath optsTextOutput
-
     -- Database mode: with or without checkpoint for resuming
     (Just connStr, _) -> do
       putStrLn "Starting value statistics collection..."
@@ -138,7 +153,7 @@ collectStatisticsSample conn samplePercent = do
   printf "Using %.1f%% random sampling (~%d records)\n\n" samplePercent expectedSampleSize
   putStrLn "Streaming sampled script contexts from database..."
 
-  (finalAcc, _) <-
+  MkFoldState{fsAccumulator = finalAcc} <-
     PG.fold
       conn
       "SELECT see.pk, ss.ledger_language, see.script_context \
@@ -147,51 +162,51 @@ collectStatisticsSample conn samplePercent = do
       \JOIN serialised_scripts ss ON see.script_hash = ss.hash \
       \ORDER BY see.pk ASC"
       (Only samplePercent)
-      (emptyAccumulator, 0 :: Int64)
+      (MkFoldState emptyAccumulator 0)
       (processRow expectedSampleSize)
   pure finalAcc
-  where
-    processRow
-      :: Int64
-      -> (StatsAccumulator, Int64)
-      -> (Int64, PlutusLedgerLanguage, BS.ByteString)
-      -> IO (StatsAccumulator, Int64)
-    processRow expectedSize (acc, rowCount) (pk, ledgerLang, contextBytes) = do
-      let newRowCount = rowCount + 1
-      when (newRowCount `mod` 1_000 == 0) do
-        let percent = (100.0 :: Double) * fromIntegral newRowCount / fromIntegral (max 1 expectedSize)
-        printf "Processing pk %d (%.2f%%)\n" pk percent
+ where
+  processRow
+    :: Int64
+    -> FoldState
+    -> (Int64, PlutusLedgerLanguage, BS.ByteString)
+    -> IO FoldState
+  processRow expectedSize (MkFoldState acc rowCount) (pk, ledgerLang, contextBytes) = do
+    let !newRowCount = rowCount + 1
+    when (newRowCount `mod` 1_000 == 0) do
+      let percent = (100.0 :: Double) * fromIntegral newRowCount / fromIntegral (max 1 expectedSize)
+      printf "Processing pk %d (%.2f%%)\n" pk percent
 
-      case deserialiseAndExtractValues ledgerLang contextBytes of
-        Nothing -> do
-          putStrLn $
-            "ERROR: Failed to parse script context at pk="
-              <> show pk
-              <> " with ledger language "
-              <> show ledgerLang
-          exitFailure
-        Just values ->
-          -- Process values eagerly to avoid building up lazy list of ValueStats
-          let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
-          in pure (newAcc, newRowCount)
+    case deserialiseAndExtractValues ledgerLang contextBytes of
+      Nothing -> do
+        putStrLn $
+          "ERROR: Failed to parse script context at pk="
+            <> show pk
+            <> " with ledger language "
+            <> show ledgerLang
+        exitFailure
+      Just values -> do
+        -- Process values eagerly to avoid building up lazy list of ValueStats
+        let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
+        pure $! MkFoldState newAcc newRowCount
 
 -- | Collect statistics from all rows with optional checkpointing
 collectStatisticsFull :: PG.Connection -> Maybe FilePath -> IO StatsAccumulator
 collectStatisticsFull conn maybeCheckpointFile = do
   -- Try to load checkpoint if file specified
-  (initialAcc, startPk, alreadyProcessedRows) <- case maybeCheckpointFile of
-    Nothing -> do
-      putStrLn "Full scan mode (no checkpointing)"
-      pure (emptyAccumulator, 0, 0)
-    Just checkpointPath -> do
-      result <- loadCheckpoint checkpointPath
-      case result of
-        Nothing -> do
-          putStrLn $ "Starting fresh (checkpoint file: " <> checkpointPath <> ")"
-          pure (emptyAccumulator, 0, 0)
-        Just (acc, lastPk, rowCount) -> do
-          putStrLn $ "Resuming from checkpoint (last pk: " <> show lastPk <> ")"
-          pure (acc, lastPk, rowCount)
+  (initialAcc, startPk, alreadyProcessedRows) <-
+    case maybeCheckpointFile of
+      Nothing -> do
+        putStrLn "Full scan mode (no checkpointing)"
+        pure (emptyAccumulator, 0, 0)
+      Just checkpointPath ->
+        loadCheckpoint checkpointPath >>= \case
+          Nothing -> do
+            putStrLn $ "Starting fresh (checkpoint file: " <> checkpointPath <> ")"
+            pure (emptyAccumulator, 0, 0)
+          Just (acc, lastPk, rowCount) -> do
+            putStrLn $ "Resuming from checkpoint (last pk: " <> show lastPk <> ")"
+            pure (acc, lastPk, rowCount)
 
   -- Query total count and remaining count
   putStrLn "Counting total script contexts in database..."
@@ -206,7 +221,7 @@ collectStatisticsFull conn maybeCheckpointFile = do
   putStrLn "Streaming script contexts from database...\n"
 
   -- Create IORef to track current state (accumulator, last pk, row count)
-  stateRef <- newIORef (initialAcc, startPk, alreadyProcessedRows)
+  stateRef <- newIORef (MkCheckpointState initialAcc startPk alreadyProcessedRows)
 
   -- Install signal handler for graceful Ctrl+C
   mainThreadId <- myThreadId
@@ -217,73 +232,75 @@ collectStatisticsFull conn maybeCheckpointFile = do
     Nothing -> pure ()
 
   -- Run fold with UserInterrupt handling
-  result <- try $ PG.fold
-    conn
-    "SELECT see.pk, ss.ledger_language, see.script_context \
-    \FROM script_evaluation_events see \
-    \JOIN serialised_scripts ss ON see.script_hash = ss.hash \
-    \WHERE see.pk > ? \
-    \ORDER BY see.pk ASC"
-    (Only startPk)
-    (initialAcc, 0 :: Int64)
-    (processRowFull totalCount alreadyProcessedRows stateRef maybeCheckpointFile)
+  result <-
+    try $
+      PG.fold
+        conn
+        "SELECT see.pk, ss.ledger_language, see.script_context \
+        \FROM script_evaluation_events see \
+        \JOIN serialised_scripts ss ON see.script_hash = ss.hash \
+        \WHERE see.pk > ? \
+        \ORDER BY see.pk ASC"
+        (Only startPk)
+        (MkFoldState initialAcc 0)
+        (processRowFull totalCount alreadyProcessedRows stateRef maybeCheckpointFile)
 
   case result of
     Left UserInterrupt -> do
       -- UserInterrupt caught, checkpoint already saved by signal handler
       -- Note: Connection may be in a bad state but bracket will handle cleanup
       -- The libpq error during cleanup is unavoidable but harmless
-      (finalAcc, _, _) <- readIORef stateRef
+      MkCheckpointState{csAccumulator = finalAcc} <- readIORef stateRef
       pure finalAcc
     Left otherException ->
       -- Re-throw other async exceptions (StackOverflow, HeapOverflow, etc.)
       throwIO otherException
-    Right (finalAcc, _) -> pure finalAcc
-  where
-    -- Signal handler to save checkpoint and exit gracefully
-    handleInterrupt stateRef checkpointPath mainThreadId = do
-      putStrLn "\n\nInterrupted. Saving checkpoint..."
-      (acc, lastPk, rowCount) <- readIORef stateRef
-      saveCheckpoint checkpointPath acc lastPk rowCount
-      putStrLn "Checkpoint saved. Run again to resume from this point."
-      throwTo mainThreadId UserInterrupt
+    Right (MkFoldState finalAcc _) -> pure finalAcc
+ where
+  -- Signal handler to save checkpoint and exit gracefully
+  handleInterrupt stateRef checkpointPath mainThreadId = do
+    putStrLn "\n\nInterrupted. Saving checkpoint..."
+    MkCheckpointState{csAccumulator = acc, csLastPk = lastPk, csTotalRows = rowCount} <- readIORef stateRef
+    saveCheckpoint checkpointPath acc lastPk rowCount
+    putStrLn "Checkpoint saved. Run again to resume from this point."
+    throwTo mainThreadId UserInterrupt
 
-    processRowFull
-      :: Int64
-      -> Int64
-      -> IORef (StatsAccumulator, Int64, Int64)
-      -> Maybe FilePath
-      -> (StatsAccumulator, Int64)
-      -> (Int64, PlutusLedgerLanguage, BS.ByteString)
-      -> IO (StatsAccumulator, Int64)
-    processRowFull totalCount alreadyProcessedRows stateRef maybeCheckpointPath (acc, rowCount) (pk, ledgerLang, contextBytes) = do
-      let newRowCount = rowCount + 1
-          totalRowsProcessed = alreadyProcessedRows + newRowCount
+  processRowFull
+    :: Int64
+    -> Int64
+    -> IORef CheckpointState
+    -> Maybe FilePath
+    -> FoldState
+    -> (Int64, PlutusLedgerLanguage, BS.ByteString)
+    -> IO FoldState
+  processRowFull totalCount alreadyProcessedRows stateRef maybeCheckpointPath (MkFoldState acc rowCount) (pk, ledgerLang, contextBytes) = do
+    let !newRowCount = rowCount + 1
+        !totalRowsProcessed = alreadyProcessedRows + newRowCount
 
-      -- Progress tracking
-      when (newRowCount `mod` 1_000 == 0) do
-        let percent = (100.0 :: Double) * fromIntegral totalRowsProcessed / fromIntegral (max 1 totalCount)
-        printf "Processing pk %d (%d / %d = %.2f%%)\n" pk totalRowsProcessed totalCount percent
+    -- Progress tracking
+    when (newRowCount `mod` 1_000 == 0) do
+      let percent = (100.0 :: Double) * fromIntegral totalRowsProcessed / fromIntegral (max 1 totalCount)
+      printf "Processing pk %d (%d / %d = %.2f%%)\n" pk totalRowsProcessed totalCount percent
 
-      -- Checkpoint saving
-      when (newRowCount `mod` 100_000 == 0) do
-        forM_ maybeCheckpointPath \checkpointPath ->
-          saveCheckpoint checkpointPath acc pk totalRowsProcessed
+    -- Checkpoint saving
+    when (newRowCount `mod` 100_000 == 0) do
+      forM_ maybeCheckpointPath \checkpointPath ->
+        saveCheckpoint checkpointPath acc pk totalRowsProcessed
 
-      case deserialiseAndExtractValues ledgerLang contextBytes of
-        Nothing -> do
-          putStrLn $
-            "ERROR: Failed to parse script context at pk="
-              <> show pk
-              <> " with ledger language "
-              <> show ledgerLang
-          exitFailure
-        Just values -> do
-          -- Process values eagerly to avoid building up lazy list of ValueStats
-          let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
-          -- Update state ref for signal handler
-          writeIORef stateRef (newAcc, pk, totalRowsProcessed)
-          pure (newAcc, newRowCount)
+    case deserialiseAndExtractValues ledgerLang contextBytes of
+      Nothing -> do
+        putStrLn $
+          "ERROR: Failed to parse script context at pk="
+            <> show pk
+            <> " with ledger language "
+            <> show ledgerLang
+        exitFailure
+      Just values -> do
+        -- Process values eagerly to avoid building up lazy list of ValueStats
+        let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
+        -- Update state ref for signal handler
+        writeIORef stateRef $! MkCheckpointState newAcc pk totalRowsProcessed
+        pure $! MkFoldState newAcc newRowCount
 
 --------------------------------------------------------------------------------
 -- Script Context Parsing ------------------------------------------------------
