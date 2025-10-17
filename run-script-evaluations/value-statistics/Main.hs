@@ -6,6 +6,7 @@ module Main where
 
 import Codec.Serialise (deserialise)
 import Control.Concurrent (myThreadId)
+import Control.DeepSeq (deepseq)
 import Control.Exception (AsyncException (UserInterrupt), bracket, catch, throwIO, throwTo, try)
 import Control.Monad (forM_, when)
 import Data.ByteString qualified as BS
@@ -200,7 +201,7 @@ collectStatisticsSample conn samplePercent = do
 collectStatisticsFull :: PG.Connection -> Maybe FilePath -> IO StatsAccumulator
 collectStatisticsFull conn maybeCheckpointFile = do
   -- Try to load checkpoint if file specified
-  (initialAcc, startPk, alreadyProcessedRows) <-
+  (!initialAcc, !startPk, !alreadyProcessedRows) <-
     case maybeCheckpointFile of
       Nothing -> do
         putStrLn "Full scan mode (no checkpointing)"
@@ -210,7 +211,7 @@ collectStatisticsFull conn maybeCheckpointFile = do
           Nothing -> do
             putStrLn $ "Starting fresh (checkpoint file: " <> checkpointPath <> ")"
             pure (emptyAccumulator, 0, 0)
-          Just (acc, lastPk, rowCount) -> do
+          Just (!acc, !lastPk, !rowCount) -> do
             putStrLn $ "Resuming from checkpoint (last pk: " <> show lastPk <> ")"
             pure (acc, lastPk, rowCount)
 
@@ -304,9 +305,11 @@ collectStatisticsFull conn maybeCheckpointFile = do
       Just values -> do
         -- Process values eagerly to avoid building up lazy list of ValueStats
         let !newAcc = foldl' (\a v -> updateAccumulator a (analyzeValue v)) acc values
+        -- Force deep evaluation to prevent thunks in CheckpointState
+        let !newAcc' = newAcc `deepseq` newAcc
         -- Update state ref for signal handler
-        writeIORef stateRef $! MkCheckpointState newAcc pk totalRowsProcessed
-        pure $! MkFoldState newAcc newRowCount
+        writeIORef stateRef $! MkCheckpointState newAcc' pk totalRowsProcessed
+        pure $! MkFoldState newAcc' newRowCount
 
 --------------------------------------------------------------------------------
 -- Script Context Parsing ------------------------------------------------------

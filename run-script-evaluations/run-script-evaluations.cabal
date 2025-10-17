@@ -89,6 +89,7 @@ executable value-statistics
     , base                  >=4.9 && <5
     , bytestring
     , containers
+    , deepseq
     , nothunks
     , optparse-applicative
     , plutus-core           >=1.52.0.0

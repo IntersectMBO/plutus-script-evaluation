@@ -14,6 +14,7 @@ module ValueStats (
   loadCheckpoint,
 ) where
 
+import Control.DeepSeq (NFData, deepseq)
 import Control.Exception (catch, IOException)
 import Control.Monad (forM_, when)
 import Data.Aeson (
@@ -74,7 +75,7 @@ data QuantityBoundary
   | Pos127 -- (2^64, 2^127]
   | PosOverflow -- > 2^127
   deriving stock (Show, Eq, Ord, Enum, Bounded, Generic)
-  deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey, NoThunks)
+  deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey, NoThunks, NFData)
 
 -- | Maximum value to track in distributions (values above are grouped into overflow)
 maxDistributionValue :: Int
@@ -106,7 +107,7 @@ data StatsAccumulator = MkStatsAccumulator
   -- ^ Count of quantities >= 99% of 2^128
   }
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON, NoThunks)
+  deriving anyclass (ToJSON, FromJSON, NoThunks, NFData)
 
 -- | Checkpoint wrapper with metadata for resuming analysis
 data Checkpoint = MkCheckpoint
@@ -560,4 +561,6 @@ loadCheckpoint filePath = do
         checkpointTimestamp
         checkpointLastPk
         checkpointRowCount
-      pure $ Just (checkpointAccumulator, checkpointLastPk, checkpointRowCount)
+      -- Force full evaluation of the loaded accumulator to avoid lazy thunks
+      let !acc' = checkpointAccumulator `deepseq` checkpointAccumulator
+      pure $ Just (acc', checkpointLastPk, checkpointRowCount)
