@@ -30,12 +30,12 @@ jobs:
         working-directory: run-script-evaluations
         env:
           PGPASSWORD: ${{ secrets.PLUTUS_READER_PGPASS }}
-        run: | 
+        run: |
           nix develop --no-warn-dirty --accept-flake-config --impure \
             --command bash -c 'cabal clean && \
               cabal update && \
               cabal run exe:run-script-evaluations -- \
               --start-from=${{ github.event.inputs.startFrom || '0' }} \
               --database-conn-str "host=localhost port=5432 dbname=mainnet_plutus_events user=plutus-reader" \
-              > evaluation.log'
+              2>&1 | tee evaluation.log'
 
