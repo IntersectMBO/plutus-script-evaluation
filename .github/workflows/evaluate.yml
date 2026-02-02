@@ -15,6 +15,7 @@ jobs:
   build:
     name: Build
     runs-on: [plutus-node, self-hosted]
+    timeout-minutes: 1440
     steps:
       - name: Checkout this Repo
         uses: actions/checkout@v4.3.0
