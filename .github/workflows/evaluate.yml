@@ -10,6 +10,10 @@ on:
         description: Start evaluation from a record with specified primary key
         required: false
         default: "0"
+      plutusBranch:
+        description: "Plutus branch to evaluate against"
+        required: false
+        default: "master"
 
 jobs:
   build:
@@ -25,7 +29,8 @@ jobs:
         working-directory: run-script-evaluations
         run: | 
           NIX_PATH="nixpkgs=channel:nixos-unstable" \
-            nix-shell -p nix-prefetch-git --run ./add_srp.sh
+            nix-shell -p nix-prefetch-git --run \
+              "./add_srp.sh --branch ${{ github.event.inputs.plutusBranch || 'master' }}"
 
       - name: Evaluate
         working-directory: run-script-evaluations
