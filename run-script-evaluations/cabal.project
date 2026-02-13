@@ -10,8 +10,8 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 index-state:
-  , hackage.haskell.org 2025-08-28T06:35:50Z
-  , cardano-haskell-packages 2025-08-27T16:08:15Z
+  , hackage.haskell.org 2025-09-21T21:31:06Z
+  , cardano-haskell-packages 2026-02-11T11:49:13Z
 
 write-ghc-environment-files: never
 tests: true
@@ -23,6 +23,3 @@ packages: .
 package postgresql-libpq
   flags: +use-pkg-config
 
-allow-newer:
-  -- Resolve QuickCheck version conflicts with Plutus 1.52.0.0
-  ral:QuickCheck, fin:QuickCheck, *:QuickCheck
