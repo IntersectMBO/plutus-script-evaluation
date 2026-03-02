@@ -10,8 +10,8 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 index-state:
-  , hackage.haskell.org 2025-09-21T21:31:06Z
-  , cardano-haskell-packages 2026-02-11T11:49:13Z
+  , hackage.haskell.org 2026-03-01T00:00:00Z
+  , cardano-haskell-packages 2026-02-25T10:27:50Z
 
 write-ghc-environment-files: never
 tests: true
@@ -22,4 +22,3 @@ packages: .
 
 package postgresql-libpq
   flags: +use-pkg-config
-
