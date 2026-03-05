@@ -33,6 +33,12 @@ jobs:
       - name: Checkout this Repo
         uses: actions/checkout@v4.3.0
 
+      - name: Add GitHub SSH host key
+        if: ${{ github.event.inputs.useSSH == 'true' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
       - name: Add plutus SRP to the cabal.project
         id: update_cabal_project
         working-directory: run-script-evaluations
