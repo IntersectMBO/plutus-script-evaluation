@@ -6,6 +6,7 @@ set -euo pipefail
 REPO="IntersectMBO/plutus"
 BRANCH="master"
 QUIET=false
+USE_SSH=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -18,13 +19,17 @@ while [[ $# -gt 0 ]]; do
       BRANCH="$2"
       shift 2
       ;;
+    --ssh)
+      USE_SSH=true
+      shift
+      ;;
     --quiet)
       QUIET=true
       shift
       ;;
     *)
       echo "Error: Unknown option $1" >&2
-      echo "Usage: $0 [--repo <owner/repo>] [--branch <branch>] [--quiet]" >&2
+      echo "Usage: $0 [--repo <owner/repo>] [--branch <branch>] [--ssh] [--quiet]" >&2
       exit 1
       ;;
   esac
@@ -48,7 +53,11 @@ log() {
   fi
 }
 
-REPO_URL="https://github.com/$REPO"
+if [[ "$USE_SSH" == "true" ]]; then
+  REPO_URL="git@github.com:$REPO"
+else
+  REPO_URL="https://github.com/$REPO"
+fi
 
 # Fetch latest commit with error handling
 log "Fetching latest commit from $REPO_URL (branch: $BRANCH)..."
