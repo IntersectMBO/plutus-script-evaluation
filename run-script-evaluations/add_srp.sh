@@ -10,6 +10,10 @@ QUIET=false
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --repo)
+      REPO="$2"
+      shift 2
+      ;;
     --branch)
       BRANCH="$2"
       shift 2
@@ -20,7 +24,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Error: Unknown option $1" >&2
-      echo "Usage: $0 [--branch <branch>] [--quiet]" >&2
+      echo "Usage: $0 [--repo <owner/repo>] [--branch <branch>] [--quiet]" >&2
       exit 1
       ;;
   esac
