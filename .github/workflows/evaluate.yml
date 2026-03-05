@@ -14,6 +14,11 @@ on:
         description: "Plutus branch to evaluate"
         required: false
         default: "master"
+      useSSH:
+        description: "Use SSH for git access (required for private repos)"
+        required: false
+        type: boolean
+        default: false
       startFrom:
         description: Start evaluation from a record with specified primary key
         required: false
@@ -34,7 +39,7 @@ jobs:
         run: |
           NIX_PATH="nixpkgs=channel:nixos-unstable" \
             nix-shell -p nix-prefetch-git --run \
-            "./add_srp.sh --repo '${{ github.event.inputs.plutusRepo || 'IntersectMBO/plutus' }}' --branch '${{ github.event.inputs.plutusBranch || 'master' }}'"
+            "./add_srp.sh --repo '${{ github.event.inputs.plutusRepo || 'IntersectMBO/plutus' }}' --branch '${{ github.event.inputs.plutusBranch || 'master' }}'${{ github.event.inputs.useSSH == 'true' && ' --ssh' || '' }}"
 
       - name: Evaluate
         working-directory: run-script-evaluations
