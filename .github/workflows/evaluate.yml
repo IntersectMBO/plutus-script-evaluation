@@ -33,19 +33,14 @@ jobs:
       - name: Checkout this Repo
         uses: actions/checkout@v4.3.0
 
-      - name: Add GitHub SSH host key
-        if: ${{ github.event.inputs.useSSH == 'true' }}
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
       - name: Add plutus SRP to the cabal.project
         id: update_cabal_project
         working-directory: run-script-evaluations
         run: |
           NIX_PATH="nixpkgs=channel:nixos-unstable" \
             nix-shell -p nix-prefetch-git openssh --run \
-            "./add_srp.sh --repo '${{ github.event.inputs.plutusRepo || 'IntersectMBO/plutus' }}' --branch '${{ github.event.inputs.plutusBranch || 'master' }}'${{ github.event.inputs.useSSH == 'true' && ' --ssh' || '' }}"
+            "mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null; \
+            ./add_srp.sh --repo '${{ github.event.inputs.plutusRepo || 'IntersectMBO/plutus' }}' --branch '${{ github.event.inputs.plutusBranch || 'master' }}'${{ github.event.inputs.useSSH == 'true' && ' --ssh' || '' }}"
 
       - name: Evaluate
         working-directory: run-script-evaluations
