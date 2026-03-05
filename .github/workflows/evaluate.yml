@@ -38,8 +38,8 @@ jobs:
         working-directory: run-script-evaluations
         run: |
           NIX_PATH="nixpkgs=channel:nixos-unstable" \
-            GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" \
-            nix-shell -p nix-prefetch-git openssh --run \
+            GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            nix-shell -p nix-prefetch-git openssh --keep HOME --run \
             "./add_srp.sh --repo '${{ github.event.inputs.plutusRepo || 'IntersectMBO/plutus' }}' --branch '${{ github.event.inputs.plutusBranch || 'master' }}'${{ github.event.inputs.useSSH == 'true' && ' --ssh' || '' }}"
 
       - name: Evaluate
