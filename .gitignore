@@ -7,3 +7,4 @@ dumps
 cabal.project.local
 .claude
 CLAUDE.md
+*.code-workspace
