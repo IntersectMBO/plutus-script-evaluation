@@ -39,10 +39,10 @@ withScriptEvaluationRecords
   -> a
   -> (a -> ScriptEvaluationRecord -> IO a)
   -> IO a
-withScriptEvaluationRecords connection startFrom accumulator callback = do
+withScriptEvaluationRecords connection endsAt accumulator callback = do
   PostgreSQL.fold
     connection
-    "SELECT \
+    "SELECT DISTINCT ON (script_serialised) \
     \ pk, \
     \ slot, \
     \ block, \
@@ -58,8 +58,81 @@ withScriptEvaluationRecords connection startFrom accumulator callback = do
     \ cost_model_key, \
     \ cost_model_param_values \
     \FROM script_evaluations \
-    \WHERE pk > ? \
-    \ORDER BY pk ASC"
-    (Only startFrom)
+    \WHERE block BETWEEN 13370000 AND ? \
+    \ORDER BY script_serialised, pk DESC;"
+    (Only endsAt)
     accumulator
     callback
+
+-- withScriptEvaluationRecords
+--   :: PostgreSQL.Connection
+--   -> Int64
+--   -> a
+--   -> (a -> ScriptEvaluationRecord -> IO a)
+--   -> IO a
+-- withScriptEvaluationRecords connection startFrom accumulator callback = do
+--   PostgreSQL.fold
+--     connection
+--     "SELECT \
+--     \ pk, \
+--     \ slot, \
+--     \ block, \
+--     \ ledger_language, \
+--     \ major_protocol_version, \
+--     \ evaluated_successfully, \
+--     \ exec_budget_cpu, \
+--     \ exec_budget_mem, \
+--     \ script_serialised, \
+--     \ datum, \
+--     \ redeemer, \
+--     \ script_context, \
+--     \ cost_model_key, \
+--     \ cost_model_param_values \
+--     \FROM script_evaluations \
+--     \ORDER BY block DESC \
+--     \LIMIT ?"
+--     (Only startFrom)
+--     accumulator
+--     callback
+
+-- 13300000 to 13377277 (1913) scripts
+
+-- withScriptEvaluationRecords
+--   :: PostgreSQL.Connection
+--   -> Int64
+--   -> a
+--   -> (a -> ScriptEvaluationRecord -> IO a)
+--   -> IO a
+-- withScriptEvaluationRecords connection startFrom accumulator callback = do
+--   PostgreSQL.fold
+--     connection
+--     "SELECT \
+--     \ pk, \
+--     \ slot, \
+--     \ block, \
+--     \ ledger_language, \
+--     \ major_protocol_version, \
+--     \ evaluated_successfully, \
+--     \ exec_budget_cpu, \
+--     \ exec_budget_mem, \
+--     \ script_serialised, \
+--     \ datum, \
+--     \ redeemer, \
+--     \ script_context, \
+--     \ cost_model_key, \
+--     \ cost_model_param_values \
+--     \FROM ( \
+--     \  SELECT DISTINCT ON (script_serialised) * \
+--     \  FROM ( \
+--     \    SELECT * \
+--     \    FROM script_evaluations \
+--     \    ORDER BY pk DESC \
+--     \    LIMIT 70000 \
+--     \  ) top_rows \
+--     \  ORDER BY script_serialised, pk DESC \
+--     \) sub \
+--     \ORDER BY pk DESC \
+--     \LIMIT ?"
+--     (Only startFrom)
+--     accumulator
+--     callback

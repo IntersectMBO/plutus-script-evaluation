@@ -4,6 +4,7 @@ module Evaluate where
 
 import Codec.Serialise (deserialise)
 import Control.Concurrent (getNumCapabilities)
+import Control.Lens (traverseOf, (&), (.~))
 import Control.Monad (when)
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Trans.Writer (WriterT (runWriterT))
@@ -18,13 +19,18 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime, nominalDiffTimeToSeconds)
 import Data.Word (Word32)
+import Data.SatInt
 import Database qualified as Db
 import Database.PostgreSQL.Simple qualified as Postgres
 import Database.PostgreSQL.Simple.Types (PGArray (fromPGArray))
+import PlutusCore.Version
+import PlutusCore.Default.Builtins
 import PlutusLedgerApi.Common (
   Data,
   EvaluationContext (..),
   ExBudget (..),
+  ExCPU (..),
+  ExMemory (..),
   MajorProtocolVersion,
   PlutusLedgerLanguage (..),
   ScriptForEvaluation,
@@ -32,15 +38,20 @@ import PlutusLedgerApi.Common (
   VerboseMode (Quiet),
   deserialiseScript,
   deserialisedScript,
-  evaluateScriptRestricting,
+  serialiseUPLC,
+  serialisedScript,
+  evaluateScriptRestricting, evaluateScriptCounting,
  )
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
+import PlutusCore.Quote
 import System.Exit (ExitCode (..), exitWith)
 import Text.PrettyBy qualified as Pretty
 import UnliftIO (IORef, MonadIO, atomicModifyIORef', liftIO, newIORef, readIORef, writeIORef)
 import UnliftIO.Concurrent (forkFinally, threadDelay)
+import UntypedPlutusCore qualified as UPLC
+import System.IO.Unsafe
 
 data ScriptEvaluationInput = MkScriptEvaluationInput
   { seiPlutusLedgerLanguage :: PlutusLedgerLanguage
@@ -124,7 +135,15 @@ evaluateScripts conn startFrom callback = do
                       fromIntegral (et * (n - 1) + dte) / fromIntegral n
            in ((threads - 1, n + 1, pt', et'), ())
     pure ()
+  waitForAllThreads st
  where
+  waitForAllThreads :: IORef (Int, Word32, Word32, Word32) -> IO ()
+  waitForAllThreads counter = do
+    (threadCount, _, _, _) <- readIORef counter
+    when (threadCount > 0) do
+      threadDelay 1000
+      waitForAllThreads counter
+
   waitForAFreeThread :: Int -> IORef (Int, Word32, Word32, Word32) -> IO ()
   waitForAFreeThread maxThreads counter = do
     (threadCount, _, _, _) <- readIORef counter
@@ -190,49 +209,98 @@ inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
       , seiBlock = seBlockNo
       }
 
+data Stat = Stat
+  { statCpuAbs :: Integer
+  , statMemAbs :: Integer
+  , statSizeAbs :: Integer
+  , statCpuRel :: Double
+  , statMemRel :: Double
+  , statSizeRel :: Double
+  }
+
+statsRef :: IORef [Stat]
+statsRef = unsafePerformIO $ newIORef []
+{-# NOINLINE statsRef #-}
+
+counterRef :: IORef Int
+counterRef = unsafePerformIO $ newIORef 0
+{-# NOINLINE counterRef #-}
+
+fromBudget :: ExBudget -> (Integer, Integer)
+fromBudget (ExBudget (ExCPU cpu) (ExMemory mem)) = (fromSatInt cpu, fromSatInt mem)
+
 onScriptEvaluationInput :: ScriptEvaluationInput -> IO ()
 onScriptEvaluationInput input@MkScriptEvaluationInput{..} = do
-  let
-    (_logOutput, evaluationResult) =
-      evaluateScriptRestricting
-        seiPlutusLedgerLanguage
-        seiMajorProtocolVersion
-        Quiet
-        seiEvaluationContext
-        seiExBudget
-        seiScript
-        seiData
+  cnt <- atomicModifyIORef' counterRef (\old -> let new = old + 1 in (new, new))
+  let (_, resultBefore) =
+        evaluateScriptCounting
+          seiPlutusLedgerLanguage
+          seiMajorProtocolVersion
+          Quiet
+          seiEvaluationContext
+          seiScript
+          seiData
+  (cpuBefore, memBefore) <- case resultBefore of
+    Left _ -> fail "evaluation failed"
+    Right budget -> pure $ fromBudget budget
+  let sizeBefore = BSS.length $ serialisedScript seiScript
 
-  when (seiBlock `mod` 100 == 0) (print seiEvaluationPk)
+  let ScriptNamedDeBruijn scriptNDB = deserialisedScript seiScript
 
-  let evaluationSuccess = isRight evaluationResult
+  scriptName <- case runQuote $ runExceptT $ traverseOf UPLC.progTerm UPLC.unDeBruijnTerm scriptNDB of
+    Left _ -> fail "debruijn failure"
+    Right x -> pure x
+  let simplOpts = if UPLC._progVer scriptName == plcVersion100
+        then
+          (UPLC.defaultOptimizeOpts
+            & UPLC.ooPreserveLogging .~ False
+            & UPLC.ooApplyToCase .~ False
+            -- & UPLC.ooInlineUnconditionalGrowth .~ 5
+            -- & UPLC.ooInlineCallsiteGrowth .~ 10
+          )
+        else
+          (UPLC.defaultOptimizeOpts
+            & UPLC.ooPreserveLogging .~ False
+            -- & UPLC.ooInlineUnconditionalGrowth .~ 5
+            -- & UPLC.ooInlineCallsiteGrowth .~ 10
+          )
 
-  when (evaluationSuccess /= seiEvaluationSuccess) do
-    let msg =
-          "Script evaluation (pk = "
-            ++ show seiEvaluationPk
-            ++ ") result ("
-            ++ show evaluationSuccess
-            ++ ") does not match the recorded result ("
-            ++ show seiEvaluationSuccess
-            ++ ")"
-            ++ "\n\nEvaluation result:\n"
-            ++ show evaluationResult
-            ++ "\n\nScript evaluation inputs:\n"
-            ++ renderScriptEvaluationInput input
-            ++ "\n\n"
-    putStr msg
+      simplified = runQuote $
+        UPLC.optimizeProgram
+          simplOpts
+          DefaultFunSemanticsVariantC
+          scriptName
 
-    nonce <- getCurrentTime
-    let logFile = show seiBlock ++ "_" ++ show nonce ++ ".log"
-    putStrLn $ "Writing log to " ++ logFile
-    TIO.writeFile logFile (Text.pack msg)
+  simplifiedNDB <- case runQuote $ runExceptT $ traverseOf UPLC.progTerm UPLC.deBruijnTerm simplified of
+    Left _ -> fail "debruijn failure"
+    Right x -> pure x
+  let simplifiedDB = UPLC.programMapNames UPLC.unNameDeBruijn simplifiedNDB
 
-  case evaluationResult of
-    Right _spentExBudget -> pure ()
-    Left err ->
-      putStrLn $
-        "Script evaluation (pk = "
-          <> show seiEvaluationPk
-          <> ") was not successful: "
-          <> show err
+      simplifiedSerialised = serialiseUPLC simplifiedDB
+      sizeAfter = BSS.length simplifiedSerialised
+  simplifiedReady <- case deserialiseScript seiPlutusLedgerLanguage seiMajorProtocolVersion simplifiedSerialised of
+    Right s -> pure s
+    Left err -> fail $ "deserialization failure" <> show err
+  let (_, resultAfter) =
+        evaluateScriptCounting
+          seiPlutusLedgerLanguage
+          seiMajorProtocolVersion
+          Quiet
+          seiEvaluationContext
+          simplifiedReady
+          seiData
+
+  (cpuAfter, memAfter) <- case resultAfter of
+    Left _ -> fail "evaluation failed"
+    Right budget -> pure $ fromBudget budget
+
+  let cpuAbs = cpuBefore - cpuAfter
+      memAbs = memBefore - memAfter
+      cpuRel :: Double = fromIntegral cpuAbs / fromIntegral cpuBefore * 100
+      memRel :: Double = fromIntegral memAbs / fromIntegral memBefore * 100
+      sizeAbs = sizeBefore - sizeAfter
+      sizeRel :: Double = fromIntegral sizeAbs / fromIntegral sizeBefore * 100
+
+  atomicModifyIORef' statsRef
+    (\xs -> (Stat cpuAbs memAbs (fromIntegral sizeAbs) cpuRel memRel sizeRel : xs, ()))
+  print (cnt, cpuAbs, memAbs, sizeAbs, cpuRel, memRel, sizeRel)

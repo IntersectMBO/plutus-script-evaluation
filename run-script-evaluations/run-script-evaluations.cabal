@@ -58,10 +58,11 @@ executable run-script-evaluations
     , bytestring
     , cardano-slotting
     , containers
+    , lens
     , murmur-hash
     , optparse-applicative
-    , plutus-core                 >=1.52.0.0
-    , plutus-ledger-api           >=1.52.0.0
+    , plutus-core                 >=1.63.0.0
+    , plutus-ledger-api           >=1.63.0.0
     , postgresql-simple
     , prettyprinter-configurable
     , serialise
@@ -92,9 +93,9 @@ executable value-statistics
     , deepseq
     , nothunks
     , optparse-applicative
-    , plutus-core           >=1.52.0.0
-    , plutus-ledger-api     >=1.52.0.0
-    , plutus-tx             >=1.52.0.0
+    , plutus-core           >=1.63.0.0
+    , plutus-ledger-api     >=1.63.0.0
+    , plutus-tx             >=1.63.0.0
     , postgresql-simple
     , serialise
     , text
