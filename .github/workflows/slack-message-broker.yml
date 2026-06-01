@@ -1,4 +1,4 @@
-# This workflow sends a message to the plutus-ci channel whenever a status check fails, 
+# This workflow sends a message to the plutus-ci channel whenever a status check fails,
 # and tries to notify the author of the commit that caused the failure.
 #
 # This workflow triggers whenever a workflow run or a check run is completed.
@@ -9,8 +9,12 @@ on:
   check_run:
     types: [completed]
   workflow_run:
-    workflows: 
+    workflows:
       - "Evaluate mainnet scripts"
+
+# The github-script step makes no API calls, so the token needs no write scope.
+permissions:
+  contents: read
 
 jobs:
   Send:
@@ -20,20 +24,31 @@ jobs:
         uses: actions/github-script@v7.1.0
         id: prepare-slack-message
 
+        # Pass event data through env and read it via process.env in the script.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_RUN_STATUS: ${{ github.event.workflow_run.status }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CHECK_RUN_NAME: ${{ github.event.check_run.name }}
+          CHECK_RUN_STATUS: ${{ github.event.check_run.status }}
+          CHECK_RUN_CONCLUSION: ${{ github.event.check_run.conclusion }}
+          CHECK_RUN_URL: ${{ github.event.check_run.html_url }}
         with:
-          script: | 
-            const isWorkflowRunEvent = "${{ github.event_name }}" == "workflow_run";
-            const isCheckRunEvent = "${{ github.event_name }}" == "check_run";
+          script: |
+            const isWorkflowRunEvent = process.env.EVENT_NAME == "workflow_run";
+            const isCheckRunEvent = process.env.EVENT_NAME == "check_run";
             const slackMembers = "<@U02V796524S>";
 
             let message;
             let shouldSendMessage;
-         
+
             function handleWorkflowRunEvent() {
-              const name = "${{ github.event.workflow_run.name }}";
-              const url = "${{ github.event.workflow_run.html_url }}";
-              const status = "${{ github.event.workflow_run.status }}";
-              const conclusion = "${{ github.event.workflow_run.conclusion }}";
+              const name = process.env.WORKFLOW_RUN_NAME;
+              const url = process.env.WORKFLOW_RUN_URL;
+              const status = process.env.WORKFLOW_RUN_STATUS;
+              const conclusion = process.env.WORKFLOW_RUN_CONCLUSION;
               const failureConclusions = [ "failure", "null", "action_required", "neutral", "timed_out" ];
 
               if (failureConclusions.includes(conclusion)) {
@@ -46,10 +61,10 @@ jobs:
             }
 
             function handleCheckRunEvent() {
-              const name = "${{ github.event.check_run.name }}";
-              const status = "${{ github.event.check_run.status }}";
-              const conclusion = "${{ github.event.check_run.conclusion }}";
-              const url = "${{ github.event.check_run.html_url }}";
+              const name = process.env.CHECK_RUN_NAME;
+              const status = process.env.CHECK_RUN_STATUS;
+              const conclusion = process.env.CHECK_RUN_CONCLUSION;
+              const url = process.env.CHECK_RUN_URL;
 
               if (conclusion == "failure") {
                 message = `❌ ${name} \`${conclusion}\` <${url}|View Logs> ${slackMembers}`;
@@ -61,17 +76,17 @@ jobs:
             }
 
 
-            if (isWorkflowRunEvent) { 
+            if (isWorkflowRunEvent) {
               handleWorkflowRunEvent();
-            } else if (isCheckRunEvent) { 
+            } else if (isCheckRunEvent) {
               handleCheckRunEvent();
             } else {
-              message = `Unknown event: ${{ github.event_name }}`;
+              message = `Unknown event: ${process.env.EVENT_NAME}`;
               shouldSendMessage = true;
             }
 
-            core.setOutput("message", message); 
-            core.setOutput("shouldSendMessage", shouldSendMessage); 
+            core.setOutput("message", message);
+            core.setOutput("shouldSendMessage", shouldSendMessage);
 
 
       - name: Notify Slack
@@ -83,6 +98,3 @@ jobs:
           payload: |
             "channel": "C07A1GSNZEE",
             "text": "${{ steps.prepare-slack-message.outputs.message }}",
-
-
-
