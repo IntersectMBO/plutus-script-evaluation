@@ -30,6 +30,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Validate inputs (defense in depth — these may originate from workflow_dispatch inputs).
+# An allowlist rejects shell metacharacters, so the values cannot inject commands even if
+# a caller forgets to quote them.
+if [[ ! "$REPO" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+  echo "Error: Invalid repository '$REPO' (expected owner/repo)" >&2
+  exit 1
+fi
+
+if [[ ! "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  echo "Error: Invalid branch name '$BRANCH'" >&2
+  exit 1
+fi
+
 # Check dependencies
 if ! command -v jq >/dev/null 2>&1; then
   echo "Error: jq is required but not installed" >&2

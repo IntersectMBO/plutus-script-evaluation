@@ -6,10 +6,6 @@ on:
 
   workflow_dispatch:
     inputs:
-      plutusRepo:
-        description: "Plutus repository (owner/repo format)"
-        required: false
-        default: "IntersectMBO/plutus"
       plutusBranch:
         description: "Plutus branch to evaluate"
         required: false
@@ -31,21 +27,29 @@ jobs:
       - name: Add plutus SRP to the cabal.project
         id: update_cabal_project
         working-directory: run-script-evaluations
+        # Pass the branch through env and read it as a shell variable so the value
+        # stays data and is never parsed as part of the command (avoids injection).
+        env:
+          PLUTUS_BRANCH: ${{ github.event.inputs.plutusBranch || 'master' }}
         run: |
+          # shellcheck disable=SC2016 # $PLUTUS_BRANCH is expanded by the nix-shell sub-shell, intentionally not by this shell
           NIX_PATH="nixpkgs=channel:nixos-unstable" \
             nix-shell -p nix-prefetch-git --run \
-            "./add_srp.sh --repo '${{ github.event.inputs.plutusRepo || 'IntersectMBO/plutus' }}' --branch '${{ github.event.inputs.plutusBranch || 'master' }}'"
+            './add_srp.sh --branch "$PLUTUS_BRANCH"'
 
       - name: Evaluate
         working-directory: run-script-evaluations
+        # START_FROM is passed through env and read as a shell variable for the same reason.
         env:
           PGPASSWORD: ${{ secrets.PLUTUS_READER_PGPASS }}
+          START_FROM: ${{ github.event.inputs.startFrom || '0' }}
         run: |
+          # shellcheck disable=SC2016 # $START_FROM is expanded by the bash -c sub-shell, intentionally not by this shell
           nix develop --no-warn-dirty --accept-flake-config --impure \
             --command bash -c 'cabal clean && \
               cabal update && \
               cabal run exe:run-script-evaluations -- \
-              --start-from=${{ github.event.inputs.startFrom || '0' }} \
+              --start-from="$START_FROM" \
               --database-conn-str "host=localhost port=5432 dbname=mainnet_plutus_events user=plutus-reader" \
               2>&1 | tee evaluation.log'
 
