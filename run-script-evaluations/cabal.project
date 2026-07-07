@@ -10,8 +10,8 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 index-state:
-  , hackage.haskell.org 2026-03-01T00:00:00Z
-  , cardano-haskell-packages 2026-02-25T10:27:50Z
+  , hackage.haskell.org 2026-06-22T23:30:49Z
+  , cardano-haskell-packages 2026-06-18T17:45:00Z
 
 write-ghc-environment-files: never
 tests: true
@@ -22,3 +22,22 @@ packages: .
 
 package postgresql-libpq
   flags: +use-pkg-config
+
+-- Latest plutus master requires aeson >=2.3. The plutus source-repository-package
+-- (appended below by add_srp.sh) brings in plutus-tx / plutus-core / plutus-ledger-api
+-- as local packages, so cabal solves their full component set, including plutus-core's
+-- cost-model-budgeting-bench executable, which pulls in criterion -> microstache.
+--
+-- deriving-aeson:aeson and microstache:aeson mirror plutus master's own cabal.project,
+-- which relaxes those same bounds to admit aeson >=2.3:
+-- https://github.com/IntersectMBO/plutus/blob/master/cabal.project
+--
+-- postgresql-simple:aeson is ours: postgresql-simple still caps aeson <2.3 at its latest
+-- release (0.7.0.1) but builds against 2.3, so we relax it to keep aeson consistent.
+constraints:
+  , setup.optparse-applicative >=0.19.0.0
+
+allow-newer:
+  , deriving-aeson:aeson
+  , microstache:aeson
+  , postgresql-simple:aeson

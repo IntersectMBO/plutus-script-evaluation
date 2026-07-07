@@ -37,6 +37,13 @@ jobs:
             nix-shell -p nix-prefetch-git --run \
             './add_srp.sh --branch "$PLUTUS_BRANCH"'
 
+      - name: Update flake inputs to cover the synced index-state
+        working-directory: run-script-evaluations
+        # add_srp.sh syncs the cabal.project index-state to the pinned Plutus commit.
+        # haskell.nix builds the plan from the pinned hackage.nix / CHaP flake inputs,
+        # so their snapshots must also be recent enough to know those index-states.
+        run: nix flake update hackage CHaP --accept-flake-config
+
       - name: Evaluate
         working-directory: run-script-evaluations
         # START_FROM is passed through env and read as a shell variable for the same reason.

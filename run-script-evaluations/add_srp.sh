@@ -98,6 +98,28 @@ log "Nix hash: $NIX_SHA"
 # Create backup of cabal.project
 cp cabal.project cabal.project.backup
 
+# Sync the CHaP/Hackage index-state to the one the pinned Plutus commit was tested
+# against, so we resolve the same package set Plutus itself uses (e.g. the aeson >=2.3
+# / cardano-base >=0.1.5 bumps). We read it from the already-prefetched checkout
+# ($PREFETCHED .path), so this uses the exact pinned commit with no extra network call.
+# The flake inputs still need `nix flake update hackage CHaP` (done in CI) so haskell.nix's
+# snapshots cover these dates.
+PLUTUS_SRC=$(echo "$PREFETCHED" | jq -r .path)
+if [[ -n "$PLUTUS_SRC" && "$PLUTUS_SRC" != "null" && -f "$PLUTUS_SRC/cabal.project" ]]; then
+  DATE_RE='[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+Z'
+  PLUTUS_HACKAGE_IDX=$(grep -oE "hackage\.haskell\.org[[:space:]]+$DATE_RE" "$PLUTUS_SRC/cabal.project" | grep -oE "$DATE_RE" | head -1)
+  PLUTUS_CHAP_IDX=$(grep -oE "cardano-haskell-packages[[:space:]]+$DATE_RE" "$PLUTUS_SRC/cabal.project" | grep -oE "$DATE_RE" | head -1)
+  if [[ -n "$PLUTUS_HACKAGE_IDX" && -n "$PLUTUS_CHAP_IDX" ]]; then
+    log "Syncing index-state from Plutus (hackage: $PLUTUS_HACKAGE_IDX, CHaP: $PLUTUS_CHAP_IDX)"
+    sed -i -E "s|(hackage\.haskell\.org[[:space:]]+)$DATE_RE|\1$PLUTUS_HACKAGE_IDX|" cabal.project
+    sed -i -E "s|(cardano-haskell-packages[[:space:]]+)$DATE_RE|\1$PLUTUS_CHAP_IDX|" cabal.project
+  else
+    log "Warning: could not parse index-state from Plutus cabal.project; leaving ours unchanged"
+  fi
+else
+  log "Warning: prefetched Plutus checkout has no cabal.project; leaving index-state unchanged"
+fi
+
 # Remove existing Plutus SRP entries to make script idempotent
 log "Removing existing Plutus source-repository-package entries..."
 sed -i '/-- Added by add_srp.sh script/,/plutus-ledger-api/d' cabal.project
