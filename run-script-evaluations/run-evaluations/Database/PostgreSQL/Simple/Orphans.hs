@@ -3,6 +3,7 @@
 module Database.PostgreSQL.Simple.Orphans where
 
 import Control.Exception (Exception)
+import Data.Int (Int64)
 import Data.SatInt (unsafeToSatInt)
 import Database.PostgreSQL.Simple.FromField (FromField (..), conversionError)
 import PlutusLedgerApi.Common (
@@ -31,4 +32,4 @@ deriving newtype instance FromField ExMemory
 deriving newtype instance FromField ExCPU
 
 instance FromField SatInt where
-  fromField f mdata = unsafeToSatInt <$> fromField @Int f mdata
+  fromField f mdata = unsafeToSatInt <$> fromField @Int64 f mdata
