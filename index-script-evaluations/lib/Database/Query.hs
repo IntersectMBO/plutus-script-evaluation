@@ -27,6 +27,7 @@ import Opaleye (
   toFields,
   where_,
   (.==),
+  (.>),
   (.>=),
  )
 import Opaleye.Internal.Column (SqlNum (pgFromInteger))
@@ -129,13 +130,39 @@ insertScriptEvaluationEvents conn events =
         , iOnConflict = Nothing
         }
 
-deleteFromSlotOnwards :: Connection -> SlotNo -> IO Int
-deleteFromSlotOnwards conn slotNo =
+{- | Delete all events strictly after the given slot.
+
+On resume the indexer intersects chain-sync at the last checkpoint slot @S@ and
+the node replays blocks strictly after @S@ (block @S@ itself is never sent
+again). The checkpoint block is fully processed, so its events must be retained;
+deleting with @>=@ would drop them permanently. We therefore delete with @>@ to
+clear only the not-yet-checkpointed blocks that will be replayed.
+-}
+deleteAfterSlot :: Connection -> SlotNo -> IO Int
+deleteAfterSlot conn slotNo =
   fromIntegral -- Convert from Int64 to Int as we don't expect many rows
     <$> runDelete
       conn
       Delete
         { dTable = scriptEvaluationEvents
-        , dWhere = \r -> eeSlotNo r .>= toFields slotNo
+        , dWhere = \r -> eeSlotNo r .> toFields slotNo
+        , dReturning = rCount
+        }
+
+{- | Delete every recorded event.
+
+Used when the indexer resumes from genesis (no checkpoint yet): the whole chain
+is replayed, so any pre-existing rows must be cleared to avoid stale or
+duplicated events. Unlike 'deleteAfterSlot', there is no checkpoint block to
+preserve, so the delete is unconditional.
+-}
+deleteAllEvents :: Connection -> IO Int
+deleteAllEvents conn =
+  fromIntegral -- Convert from Int64 to Int as we don't expect many rows
+    <$> runDelete
+      conn
+      Delete
+        { dTable = scriptEvaluationEvents
+        , dWhere = const (toFields True)
         , dReturning = rCount
         }
