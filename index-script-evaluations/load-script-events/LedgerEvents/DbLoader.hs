@@ -64,15 +64,7 @@ makeEventIndexer
 makeEventIndexer checkpointDir conn = do
   pure \(blockNo, checkpoint@Checkpoint{cChainPoint}, ledgerEvents) -> do
     let slotNo = fromMaybe (SlotNo 0) (chainPointToSlotNo cChainPoint)
-    when (unBlockNo blockNo `mod` 10_000 == 0) do
-      putStrLn "Writing ledger state ... "
-      FileStorage.saveLedgerState checkpointDir checkpoint
-      putStrLn "Done."
-      putStrLn "Cleaning up old ledger states..."
-      FileStorage.cleanupLedgerStates checkpointDir
-      putStrLn "Done."
-
-    let eventRecords = indexLedgerEvents slotNo blockNo ledgerEvents
+        eventRecords = indexLedgerEvents slotNo blockNo ledgerEvents
         scriptEvaluationRecords = nub $ eventRecords <&> event
         costsRecords = nub $ eventRecords >>= maybeToList . costs
         scriptRecords = nub $ eventRecords <&> script
@@ -90,6 +82,21 @@ makeEventIndexer checkpointDir conn = do
     numEvents <- DB.insertScriptEvaluationEvents conn scriptEvaluationRecords
     unless (numEvents == 0) do
       putStrLn [i|Inserted #{numEvents} script evaluation events.|]
+
+    -- Persist the checkpoint only after this block's events have been inserted.
+    -- Each insert above runs in autocommit mode, so once they return the block's
+    -- events are durably stored. Saving the checkpoint last guarantees that a
+    -- crash can never leave the checkpoint pointing at a block whose events did
+    -- not reach the database: on resume the node replays blocks strictly after
+    -- the checkpoint, so a checkpoint block with missing events would never be
+    -- re-applied and those events would be lost silently.
+    when (unBlockNo blockNo `mod` 10_000 == 0) do
+      putStrLn "Writing ledger state ... "
+      FileStorage.saveLedgerState checkpointDir checkpoint
+      putStrLn "Done."
+      putStrLn "Cleaning up old ledger states..."
+      FileStorage.cleanupLedgerStates checkpointDir
+      putStrLn "Done."
 
 data EventRecords = MkEventRecords
   { event :: DB.EvaluationEventRecord
