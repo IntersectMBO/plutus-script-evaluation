@@ -11,7 +11,6 @@ import Cardano.Api (
   chainPointToSlotNo,
  )
 import Data.ByteString (ByteString)
-import Data.Maybe (fromMaybe)
 import Data.String.Interpolate (i)
 import Database qualified as Db
 import Database.PostgreSQL.Simple (Connection)
@@ -47,9 +46,17 @@ loadScriptEvents conn Options{..} = do
 
   putStrLn $ Render.startChainPoint chainPoint
 
-  let slot = fromMaybe 0 (chainPointToSlotNo chainPoint)
-  numDeleted <- Db.deleteAfterSlot conn slot
-  putStrLn [i|Deleted #{numDeleted} events (slot > #{slot}).|]
+  -- Clear events that will be re-inserted on replay. From a real checkpoint at
+  -- slot S the node replays blocks strictly after S, so block S is retained and
+  -- we delete only slot > S. From genesis (no checkpoint) the whole chain is
+  -- replayed, so every existing row is deleted.
+  case chainPointToSlotNo chainPoint of
+    Nothing -> do
+      numDeleted <- Db.deleteAllEvents conn
+      putStrLn [i|Deleted #{numDeleted} events (all; replaying from genesis).|]
+    Just slot -> do
+      numDeleted <- Db.deleteAfterSlot conn slot
+      putStrLn [i|Deleted #{numDeleted} events (slot > #{slot}).|]
 
   ensureDir checkpointsDir
   subscribeToChainSyncEvents optsSocketPath optsNetworkId [chainPoint]

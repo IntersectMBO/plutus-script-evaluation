@@ -148,3 +148,21 @@ deleteAfterSlot conn slotNo =
         , dWhere = \r -> eeSlotNo r .> toFields slotNo
         , dReturning = rCount
         }
+
+{- | Delete every recorded event.
+
+Used when the indexer resumes from genesis (no checkpoint yet): the whole chain
+is replayed, so any pre-existing rows must be cleared to avoid stale or
+duplicated events. Unlike 'deleteAfterSlot', there is no checkpoint block to
+preserve, so the delete is unconditional.
+-}
+deleteAllEvents :: Connection -> IO Int
+deleteAllEvents conn =
+  fromIntegral -- Convert from Int64 to Int as we don't expect many rows
+    <$> runDelete
+      conn
+      Delete
+        { dTable = scriptEvaluationEvents
+        , dWhere = const (toFields True)
+        , dReturning = rCount
+        }
