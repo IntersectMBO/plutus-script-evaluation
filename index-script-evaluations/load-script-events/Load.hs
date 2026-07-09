@@ -48,8 +48,8 @@ loadScriptEvents conn Options{..} = do
   putStrLn $ Render.startChainPoint chainPoint
 
   let slot = fromMaybe 0 (chainPointToSlotNo chainPoint)
-  numDeleted <- Db.deleteFromSlotOnwards conn slot
-  putStrLn [i|Deleted #{numDeleted} events (slot >= #{slot}).|]
+  numDeleted <- Db.deleteAfterSlot conn slot
+  putStrLn [i|Deleted #{numDeleted} events (slot > #{slot}).|]
 
   ensureDir checkpointsDir
   subscribeToChainSyncEvents optsSocketPath optsNetworkId [chainPoint]
