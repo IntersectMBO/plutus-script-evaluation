@@ -84,48 +84,66 @@ makeEventIndexer checkpointsDir eventsDir (fromIntegral -> eventsPerFile) = do
     let MkPlutusEvents{..} = indexLedgerEvents ledgerEvents
     state@EventHandlerState{..} <- readIORef ref
     let numNewEvents = length peScriptEvaluationEvents
+        totalEvents = numScriptEvents + numNewEvents
+        bufferedEvents = scriptEvents <> peScriptEvaluationEvents
+        costParamsV1' = costParamsV1 <|> peCostParamsV1
+        costParamsV2' = costParamsV2 <|> peCostParamsV2
     putStrLn
       [__i|
-      Total script events: #{numScriptEvents + numNewEvents} (+#{numNewEvents})
+      Total script events: #{totalEvents} (+#{numNewEvents})
       |]
-    if numScriptEvents + numNewEvents >= eventsPerFile
+    if totalEvents >= eventsPerFile
       then do
-        let (eventsToWrite, eventsToCarry) =
-              splitAt eventsPerFile $
-                DList.toList (scriptEvents <> peScriptEvaluationEvents)
+        -- Flush the entire buffer as a single file keyed by the current block's
+        -- chain point, so the file boundary lines up with the checkpoint block.
+        --
+        -- Write the events BEFORE persisting the checkpoint. If the process
+        -- dies in between, the checkpoint stays behind the data: resume replays
+        -- the blocks after the previous checkpoint and deterministically
+        -- rewrites this same (chain-point-keyed) file, so nothing is lost. The
+        -- reverse order can permanently drop a whole file's worth of events if
+        -- interrupted before the write.
+        --
+        -- We flush the whole buffer rather than splitting at exactly
+        -- eventsPerFile and carrying the remainder. Carried events belong to
+        -- the checkpoint block, which resume never replays (it resumes strictly
+        -- after the checkpoint), so any carry would be lost on every restart.
+        -- The file therefore slightly overshoots eventsPerFile (by at most one
+        -- block's events); eventsPerFile is a soft target, not an exact size.
+        let eventsToWrite = DList.toList bufferedEvents
+        putStrLn $
+          "Writing " <> show totalEvents <> " script events..."
+        FileStorage.saveEvents
+          eventsDir
+          chainPoint
+          ScriptEvaluationEvents
+            { eventsCostParamsV1 = strictMaybeToMaybe costParamsV1'
+            , eventsCostParamsV2 = strictMaybeToMaybe costParamsV2'
+            , eventsEvents = NE.fromList eventsToWrite
+            }
+        putStrLn "Done."
         putStrLn "Writing ledger state ... "
         FileStorage.saveLedgerState checkpointsDir checkpoint
         putStrLn "Done."
         putStrLn "Cleaning up old ledger states..."
         FileStorage.cleanupLedgerStates checkpointsDir
         putStrLn "Done."
-        putStrLn $
-          "Writing " <> show (length eventsToWrite) <> " script events..."
-        FileStorage.saveEvents
-          eventsDir
-          chainPoint
-          ScriptEvaluationEvents
-            { eventsCostParamsV1 = strictMaybeToMaybe costParamsV1
-            , eventsCostParamsV2 = strictMaybeToMaybe costParamsV2
-            , eventsEvents = NE.fromList eventsToWrite
-            }
-        putStrLn "Done."
         writeIORef
           ref
           state
-            { costParamsV1 = costParamsV1 <|> peCostParamsV1
-            , costParamsV2 = costParamsV2 <|> peCostParamsV2
-            , scriptEvents = DList.fromList eventsToCarry
-            , numScriptEvents = numScriptEvents + numNewEvents - eventsPerFile
+            { costParamsV1 = costParamsV1'
+            , costParamsV2 = costParamsV2'
+            , scriptEvents = DList.empty
+            , numScriptEvents = 0
             }
       else
         writeIORef
           ref
           state
-            { costParamsV1 = costParamsV1 <|> peCostParamsV1
-            , costParamsV2 = costParamsV2 <|> peCostParamsV2
-            , scriptEvents = scriptEvents <> peScriptEvaluationEvents
-            , numScriptEvents = numScriptEvents + numNewEvents
+            { costParamsV1 = costParamsV1'
+            , costParamsV2 = costParamsV2'
+            , scriptEvents = bufferedEvents
+            , numScriptEvents = totalEvents
             }
 
 data PlutusEvents = MkPlutusEvents
