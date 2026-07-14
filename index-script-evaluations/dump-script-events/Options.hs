@@ -10,6 +10,7 @@ where
 
 import Cardano.Api (File (File))
 import Cardano.Api qualified as Cardano
+import Data.Word (Word64)
 import Dump (Options (..))
 import Options.Applicative qualified as O
 import Path (Dir, SomeBase, parseSomeDir)
@@ -36,7 +37,7 @@ options = do
         )
   optsNetworkId <- networkIdParser
   optsEventsPerFile <-
-    O.option O.auto $
+    O.option positiveWord64 $
       mconcat
         [ O.long "events-per-file"
         , O.metavar "EVENTS_PER_FILE"
@@ -63,6 +64,16 @@ options = do
 
 absDirParser :: O.ReadM (SomeBase Dir)
 absDirParser = O.str >>= either (fail . show) pure . parseSomeDir
+
+{- | Parse a positive 'Word64', rejecting 0 so the events buffer is never
+flushed on an empty list (which would crash on @NE.fromList []@).
+-}
+positiveWord64 :: O.ReadM Word64
+positiveWord64 =
+  O.auto >>= \n ->
+    if n == 0
+      then O.readerError "events-per-file must be at least 1"
+      else pure n
 
 parserInfo :: O.ParserInfo Options
 parserInfo =
