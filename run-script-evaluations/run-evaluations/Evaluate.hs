@@ -37,10 +37,10 @@ import PlutusLedgerApi.Common (
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
-import System.Exit (ExitCode (..), exitWith)
+import System.Exit (ExitCode (..))
 import Text.PrettyBy qualified as Pretty
 import UnliftIO (IORef, MonadIO, atomicModifyIORef', liftIO, newIORef, readIORef, writeIORef)
-import UnliftIO.Concurrent (forkFinally, threadDelay)
+import UnliftIO.Concurrent (forkFinally, myThreadId, threadDelay, throwTo)
 
 data ScriptEvaluationInput = MkScriptEvaluationInput
   { seiPlutusLedgerLanguage :: PlutusLedgerLanguage
@@ -83,6 +83,7 @@ evaluateScripts
   -> IO ()
 evaluateScripts conn startFrom callback = do
   maxThreads <- liftIO getNumCapabilities
+  mainThread <- liftIO myThreadId
   st <-
     newIORef
       ( 0 -- current number of threads
@@ -105,9 +106,14 @@ evaluateScripts conn startFrom callback = do
             , nominalDiffTimeToMillis (end `diffUTCTime` startEvaluation)
             )
     _threadId <- forkFinally work \case
-      Left err -> liftIO do
-        putStrLn $ "Failed to evaluate script: " <> show err
-        exitWith (ExitFailure 1)
+      Left err -> do
+        atomicModifyIORef' st \(threads, n, pt, et) -> ((threads - 1, n, pt, et), ())
+        liftIO do
+          putStrLn $ "Failed to evaluate script: " <> show err
+          -- 'exitWith' would only kill this worker thread: an 'ExitCode' thrown in
+          -- a forked thread is caught by its default handler and the process keeps
+          -- running. Throw to the main thread so the whole process exits.
+          throwTo mainThread (ExitFailure 1)
       Right (!dtp, !dte) -> do
         atomicModifyIORef' st \(threads, n, pt, et) ->
           let pt' =
