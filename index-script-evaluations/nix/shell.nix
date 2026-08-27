@@ -53,9 +53,10 @@ let
         args = [ "--config" ".stylish-haskell.yaml" ];
       };
       fourmolu = {
+        # No args: git-hooks.nix already passes --mode inplace, and fourmolu
+        # rejects the flag when it appears twice.
         enable = true;
         package = tools.fourmolu;
-        args = [ "--mode" "inplace" ];
       };
       hlint = {
         enable = true;

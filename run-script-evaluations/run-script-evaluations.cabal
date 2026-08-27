@@ -54,7 +54,7 @@ executable run-script-evaluations
     Options
 
   build-depends:
-    , base                        >=4.9    && <5
+    , base                        >=4.9      && <5
     , bytestring
     , cardano-slotting
     , containers
@@ -73,7 +73,7 @@ executable run-script-evaluations
 
 executable value-statistics
   import:         lang
-  hs-source-dirs: value-statistics, run-evaluations
+  hs-source-dirs: value-statistics run-evaluations
   main-is:        Main.hs
   ghc-options:    -threaded -with-rtsopts=-N
   other-modules:
@@ -86,7 +86,7 @@ executable value-statistics
   build-depends:
     , aeson
     , aeson-pretty
-    , base                  >=4.9 && <5
+    , base                  >=4.9      && <5
     , bytestring
     , containers
     , deepseq

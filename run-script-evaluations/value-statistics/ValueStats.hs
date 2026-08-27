@@ -15,7 +15,7 @@ module ValueStats (
 ) where
 
 import Control.DeepSeq (NFData, deepseq)
-import Control.Exception (catch, IOException)
+import Control.Exception (IOException, catch)
 import Control.Monad (forM_, when)
 import Data.Aeson (
   FromJSON,
@@ -28,8 +28,8 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Int (Int64)
 import Data.List (foldl', sort)
-import Data.Map.Strict (Map)
 import Data.Map qualified as Map
+import Data.Map.Strict (Map)
 import Data.Maybe (mapMaybe)
 import Data.Time (getCurrentTime)
 import Data.Time.Format.ISO8601 (iso8601Show)
@@ -157,11 +157,12 @@ analyzeValue (V1.Value valueMap) =
       -- We use foldl' to ensure strict evaluation and memory release
       (quantityBoundaries, near64Count, near128Count) =
         foldl'
-          (\(!boundaries, !n64, !n128) q ->
-            let !boundary = classifyQuantity q
-                !is64 = if isNear2Pow64 q then 1 else 0
-                !is128 = if isNear2Pow128 q then 1 else 0
-             in (Map.insertWith (+) boundary 1 boundaries, n64 + is64, n128 + is128))
+          ( \(!boundaries, !n64, !n128) q ->
+              let !boundary = classifyQuantity q
+                  !is64 = if isNear2Pow64 q then 1 else 0
+                  !is128 = if isNear2Pow128 q then 1 else 0
+               in (Map.insertWith (+) boundary 1 boundaries, n64 + is64, n128 + is128)
+          )
           (Map.empty, 0, 0)
           quantities
    in MkValueStats
@@ -204,28 +205,37 @@ isNear2Pow128 q =
 
 -- | Update accumulator with new statistics
 updateAccumulator :: StatsAccumulator -> ValueStats -> StatsAccumulator
-updateAccumulator acc MkValueStats{vsPolicyCount, vsTokenCount, vsQuantityBoundaries, vsQuantityCount, vsQuantitiesNear2Pow64, vsQuantitiesNear2Pow128} =
-  let !quantityBoundaryUpdates = Map.unionWith (+) (saQuantityBoundaries acc) vsQuantityBoundaries
-      -- Cap distribution values to prevent unbounded map growth
-      !cappedPolicyCount = min vsPolicyCount maxDistributionValue
-      !cappedTokenCount = min vsTokenCount maxDistributionValue
-   in acc
-        { saCount = saCount acc + 1
-        , saPolicyMin = min (saPolicyMin acc) vsPolicyCount
-        , saPolicyMax = max (saPolicyMax acc) vsPolicyCount
-        , saPolicySum = saPolicySum acc + fromIntegral vsPolicyCount
-        , saPolicyDistribution =
-            Map.insertWith (+) cappedPolicyCount 1 (saPolicyDistribution acc)
-        , saTokenMin = min (saTokenMin acc) vsTokenCount
-        , saTokenMax = max (saTokenMax acc) vsTokenCount
-        , saTokenSum = saTokenSum acc + fromIntegral vsTokenCount
-        , saTokenDistribution =
-            Map.insertWith (+) cappedTokenCount 1 (saTokenDistribution acc)
-        , saQuantityBoundaries = quantityBoundaryUpdates
-        , saQuantityCount = saQuantityCount acc + vsQuantityCount
-        , saQuantitiesNear2Pow64 = saQuantitiesNear2Pow64 acc + vsQuantitiesNear2Pow64
-        , saQuantitiesNear2Pow128 = saQuantitiesNear2Pow128 acc + vsQuantitiesNear2Pow128
-        }
+updateAccumulator
+  acc
+  MkValueStats
+    { vsPolicyCount
+    , vsTokenCount
+    , vsQuantityBoundaries
+    , vsQuantityCount
+    , vsQuantitiesNear2Pow64
+    , vsQuantitiesNear2Pow128
+    } =
+    let !quantityBoundaryUpdates = Map.unionWith (+) (saQuantityBoundaries acc) vsQuantityBoundaries
+        -- Cap distribution values to prevent unbounded map growth
+        !cappedPolicyCount = min vsPolicyCount maxDistributionValue
+        !cappedTokenCount = min vsTokenCount maxDistributionValue
+     in acc
+          { saCount = saCount acc + 1
+          , saPolicyMin = min (saPolicyMin acc) vsPolicyCount
+          , saPolicyMax = max (saPolicyMax acc) vsPolicyCount
+          , saPolicySum = saPolicySum acc + fromIntegral vsPolicyCount
+          , saPolicyDistribution =
+              Map.insertWith (+) cappedPolicyCount 1 (saPolicyDistribution acc)
+          , saTokenMin = min (saTokenMin acc) vsTokenCount
+          , saTokenMax = max (saTokenMax acc) vsTokenCount
+          , saTokenSum = saTokenSum acc + fromIntegral vsTokenCount
+          , saTokenDistribution =
+              Map.insertWith (+) cappedTokenCount 1 (saTokenDistribution acc)
+          , saQuantityBoundaries = quantityBoundaryUpdates
+          , saQuantityCount = saQuantityCount acc + vsQuantityCount
+          , saQuantitiesNear2Pow64 = saQuantitiesNear2Pow64 acc + vsQuantitiesNear2Pow64
+          , saQuantitiesNear2Pow128 = saQuantitiesNear2Pow128 acc + vsQuantitiesNear2Pow128
+          }
 
 -- | Compute percentiles from a distribution
 computePercentiles :: Map Int Int64 -> [Int] -> [(Int, Int)]
@@ -254,7 +264,7 @@ createHistogram :: Map Int Int64 -> [(Int, Int64, String)]
 createHistogram distribution =
   let
     -- Create bins: 0, 1, 2, ..., 9, 10, 20, 30, ..., 490, 500+
-    bins = [0..9] ++ [10, 20 .. 500]
+    bins = [0 .. 9] ++ [10, 20 .. 500]
     maxCount = 500
 
     -- Bin the distribution
@@ -474,24 +484,24 @@ formatTextReport MkStatsAccumulator{..} =
       if saQuantityCount > 0
         then (100.0 :: Double) * fromIntegral saQuantitiesNear2Pow128 / fromIntegral saQuantityCount
         else 0.0
-
-   in unlines $
-        [ "====================================================================="
-        , "                   Value Statistics Report"
-        , "====================================================================="
-        , ""
-        , printf "Total Values analyzed: %d" saCount
-        , ""
-        , "---------------------------------------------------------------------"
-        , "Policies per Value:"
-        , "---------------------------------------------------------------------"
-        , ""
-        , printf "Min:  %d" saPolicyMin
-        , printf "Max:  %d" saPolicyMax
-        , printf "Mean: %.2f" policyMean
-        , ""
-        , "Percentiles:"
-        ]
+   in
+    unlines $
+      [ "====================================================================="
+      , "                   Value Statistics Report"
+      , "====================================================================="
+      , ""
+      , printf "Total Values analyzed: %d" saCount
+      , ""
+      , "---------------------------------------------------------------------"
+      , "Policies per Value:"
+      , "---------------------------------------------------------------------"
+      , ""
+      , printf "Min:  %d" saPolicyMin
+      , printf "Max:  %d" saPolicyMax
+      , printf "Mean: %.2f" policyMean
+      , ""
+      , "Percentiles:"
+      ]
         ++ [printf "  P%d:  %d" p val | (p, val) <- policyPercentiles]
         ++ ["", "Distribution (0-9: individual bins, 10-500: bins of 10):"]
         ++ [bar | (_, _, bar) <- policyHistogram]
@@ -548,8 +558,9 @@ saveCheckpoint filePath acc lastPk rowCount = do
 -- | Load checkpoint from a JSON file
 loadCheckpoint :: FilePath -> IO (Maybe (StatsAccumulator, Int64, Int64))
 loadCheckpoint filePath = do
-  result <- (eitherDecodeFileStrict filePath :: IO (Either String Checkpoint))
-    `catch` \(_ :: IOException) -> pure (Left "File not found")
+  result <-
+    (eitherDecodeFileStrict filePath :: IO (Either String Checkpoint))
+      `catch` \(_ :: IOException) -> pure (Left "File not found")
   case result of
     Left err -> do
       putStrLn $ "Could not load checkpoint: " <> err

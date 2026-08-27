@@ -263,8 +263,8 @@ type DbTable f = Table f f
 
 scriptEvaluationEvents
   :: Table
-      WriteEvaluationEventRecordFields
-      ReadEvaluationEventRecordFields
+       WriteEvaluationEventRecordFields
+       ReadEvaluationEventRecordFields
 scriptEvaluationEvents =
   table "script_evaluation_events" $
     pEvaluationEvent
