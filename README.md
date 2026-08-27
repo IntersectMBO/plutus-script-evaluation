@@ -3,9 +3,7 @@
 Tools used to:
 
 1. Accumulate Plutus script evaluation events by replaying blockchain folding over the Ledger state and extracting `PlutusScriptEvaluationEvent`s.
-2. Record accumulated events:
-   1. On the file system as "dump" files.
-   2. In the PostgreSQL database.
+2. Record accumulated events in the PostgreSQL database.
 
 ## How to use
 
@@ -21,7 +19,7 @@ Tools used to:
    ```
 2. Enter the `nix` shell using either `nix develop` command or `direnv` hooked to your shell.
 3. See available commands by entering `info` in the shell.
-4. Run the script dump job using the `dump` command or script upload job with the `load` command.
+4. Run the script upload job with the `load` command.
 
 ## How to re-evaluate recorded Plutus Script evaluations locally
 

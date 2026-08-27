@@ -3,8 +3,6 @@
 
 module Types (
   Checkpoint (..),
-  StreamerState (..),
-  ScriptM,
   Block,
   OnImmutableTip (..),
 )
@@ -14,10 +12,7 @@ import Cardano.Api qualified as Cardano
 import Codec.Serialise qualified as CBOR
 import Codec.Serialise.Decoding qualified as CBOR
 import Codec.Serialise.Encoding qualified as CBOR
-import Control.Monad.Trans.State.Strict (StateT)
 import Data.Proxy (Proxy (Proxy))
-import Data.Word (Word64)
-import PlutusLedgerApi.Test.EvaluationEvent (ScriptEvaluationEvent)
 
 -- | A checkpoint from which the streamer can resume.
 data Checkpoint = Checkpoint
@@ -53,16 +48,6 @@ decodeChainPoint =
             (Cardano.proxyToAsType (Proxy @(Cardano.Hash Cardano.BlockHeader)))
             hashRawBytes
         )
-
--- | State we maintain when consuming the stream of ledger state and events
-data StreamerState = StreamerState
-  { ssCount :: Word64
-  , ssV1CostParams :: Maybe [Integer]
-  , ssV2CostParams :: Maybe [Integer]
-  , ssEvents :: [ScriptEvaluationEvent]
-  }
-
-type ScriptM = StateT StreamerState IO
 
 type Block = Cardano.BlockInMode
 

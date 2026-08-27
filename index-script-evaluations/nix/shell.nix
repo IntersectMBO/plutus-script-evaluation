@@ -100,16 +100,6 @@ let
   ];
 
   # Define scripts from the original shell.nix
-  dumpScript = pkgs.writeShellScriptBin "dump" ''
-    cabal run dump-script-events -- \
-      --mainnet \
-      --socket-path "$CARDANO_NODE_SOCKET_PATH" \
-      --config "$CARDANO_NODE_CONFIG_PATH" \
-      --events-per-file 5000 \
-      --event-dir dumps/events \
-      --checkpoint-dir dumps/checkpoints
-  '';
-
   loadScript = pkgs.writeShellScriptBin "load" ''
     cabal run load-script-events -- \
       --mainnet \
@@ -134,7 +124,7 @@ let
       commonPkgs
       darwinPkgs
       linuxPkgs
-      [ dumpScript loadScript deserialiseScript materialiseScript ]
+      [ loadScript deserialiseScript materialiseScript ]
     ];
 
     withHoogle = false;
