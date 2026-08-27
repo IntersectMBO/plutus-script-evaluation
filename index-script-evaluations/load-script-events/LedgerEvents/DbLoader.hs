@@ -11,18 +11,22 @@ import Cardano.Ledger.Binary (encCBOR, getVersion64)
 import Cardano.Ledger.Binary qualified as Binary
 import Cardano.Ledger.Plutus (
   ExUnits (..),
+  Language,
   LegacyPlutusArgs (..),
   PlutusArgs,
+  PlutusScriptContext,
   SLanguage (..),
   getCostModelParams,
   isLanguage,
   plutusBinary,
   plutusFromRunnable,
+  plutusLanguage,
   plutusRunnableScriptHash,
   unPlutusBinary,
   unPlutusV1Args,
   unPlutusV2Args,
   unPlutusV3Args,
+  unPlutusV4Args,
  )
 import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..))
 import Codec.Serialise (serialise)
@@ -48,12 +52,12 @@ import PlutusCore.Evaluation.Machine.ExMemory (ExCPU, ExMemory)
 import PlutusLedgerApi.Common (
   Data,
   MajorProtocolVersion (MajorProtocolVersion),
-  PlutusLedgerLanguage (..),
   toData,
  )
 import PlutusLedgerApi.V3 (
   ScriptContext (scriptContextScriptInfo),
   ScriptInfo (..),
+  ToData,
   scriptContextRedeemer,
  )
 import Types (Checkpoint (..))
@@ -177,45 +181,47 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
         -- versions so far, 'Int' is enough to store them.
         MajorProtocolVersion (fromIntegral (getVersion64 pwcProtocolVersion))
 
-      ssLedgerLanguage :: PlutusLedgerLanguage =
-        case isLanguage @l of
-          SPlutusV1 -> PlutusV1
-          SPlutusV2 -> PlutusV2
-          SPlutusV3 -> PlutusV3
+      ssLedgerLanguage :: Language = plutusLanguage (isLanguage @l)
 
       eeScriptContext :: ByteString =
-        toStrict $ serialise @Data
-          case isLanguage @l of
-            SPlutusV1 -> case unPlutusV1Args args of
-              LegacyPlutusArgs2 _reedemer context -> toData context
-              LegacyPlutusArgs3 _datum _reedemer context -> toData context
-            SPlutusV2 -> case unPlutusV2Args args of
-              LegacyPlutusArgs2 _reedemer context -> toData context
-              LegacyPlutusArgs3 _datum _reedemer context -> toData context
-            SPlutusV3 -> toData (unPlutusV3Args args)
+        toStrict (serialise @Data contextData)
 
       eeDatum :: Maybe ByteString =
-        toStrict . serialise @Data <$> case isLanguage @l of
-          SPlutusV1 -> case unPlutusV1Args args of
-            LegacyPlutusArgs2 _reedemer _context -> Nothing
-            LegacyPlutusArgs3 datum _reedemer _context -> Just datum
-          SPlutusV2 -> case unPlutusV2Args args of
-            LegacyPlutusArgs2 _reedemer _context -> Nothing
-            LegacyPlutusArgs3 datum _reedemer _context -> Just datum
-          SPlutusV3 -> case scriptContextScriptInfo (unPlutusV3Args args) of
-            SpendingScript _txOutRef optionalDatum -> toData <$> optionalDatum
-            _ -> Nothing
+        toStrict . serialise @Data <$> datumData
 
       eeRedeemer :: Maybe ByteString =
-        toStrict . serialise @Data <$> case isLanguage @l of
-          SPlutusV1 -> case unPlutusV1Args args of
-            LegacyPlutusArgs2 redeemer _context -> Just redeemer
-            LegacyPlutusArgs3 _datum redeemer _context -> Just redeemer
-          SPlutusV2 -> case unPlutusV2Args args of
-            LegacyPlutusArgs2 redeemer _context -> Just redeemer
-            LegacyPlutusArgs3 _datum redeemer _context -> Just redeemer
-          SPlutusV3 ->
-            Just (toData (scriptContextRedeemer (unPlutusV3Args args)))
+        toStrict . serialise @Data <$> redeemerData
+
+      -- The ledger (cardano-ledger-core 1.21, capped below plutus-ledger-api
+      -- 1.68) reuses the V3 script context for V4 scripts, so language-4 rows
+      -- store V3-encoded contexts. Rows written under this pin remain
+      -- V3-encoded after the ledger switches to the real V4 context, so that
+      -- switch requires a re-index or a context-shape marker.
+      (contextData, datumData, redeemerData) =
+        case isLanguage @l of
+          SPlutusV1 -> fromLegacyArgs (unPlutusV1Args args)
+          SPlutusV2 -> fromLegacyArgs (unPlutusV2Args args)
+          SPlutusV3 -> fromV3StyleContext (unPlutusV3Args args)
+          SPlutusV4 -> fromV3StyleContext (unPlutusV4Args args)
+
+      fromLegacyArgs
+        :: (ToData (PlutusScriptContext l'))
+        => LegacyPlutusArgs l'
+        -> (Data, Maybe Data, Maybe Data)
+      fromLegacyArgs = \case
+        LegacyPlutusArgs2 redeemer context ->
+          (toData context, Nothing, Just redeemer)
+        LegacyPlutusArgs3 datum redeemer context ->
+          (toData context, Just datum, Just redeemer)
+
+      fromV3StyleContext :: ScriptContext -> (Data, Maybe Data, Maybe Data)
+      fromV3StyleContext context =
+        ( toData context
+        , case scriptContextScriptInfo context of
+            SpendingScript _txOutRef optionalDatum -> toData <$> optionalDatum
+            _ -> Nothing
+        , Just (toData (scriptContextRedeemer context))
+        )
 
       ssSerialised :: ByteString =
         fromShort . unPlutusBinary . plutusBinary $

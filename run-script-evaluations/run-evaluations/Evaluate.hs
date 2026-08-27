@@ -37,6 +37,7 @@ import PlutusLedgerApi.Common (
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
+import PlutusLedgerApi.V4 qualified as V4
 import System.Exit (ExitCode (..))
 import Text.PrettyBy qualified as Pretty
 import UnliftIO (IORef, MonadIO, atomicModifyIORef', liftIO, newIORef, readIORef, writeIORef)
@@ -143,7 +144,7 @@ evaluateScripts conn startFrom callback = do
 
 inputFromRecord
   :: (MonadFail m, MonadIO m)
-  => IORef (Map Int64 EvaluationContext)
+  => IORef (Map (PlutusLedgerLanguage, Int64) EvaluationContext)
   -> Db.ScriptEvaluationRecord
   -> m ScriptEvaluationInput
 inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
@@ -153,14 +154,23 @@ inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
           Right (ctx, _warnings) -> pure ctx
   seiEvaluationContext <- do
     keyedEvalCtxs <- liftIO $ readIORef evalCtxRef
-    case Map.lookup seCostModelKey keyedEvalCtxs of
+    -- The cost model key alone doesn't identify a language: different
+    -- languages can record identical parameter value lists (V3 and V4 share
+    -- the same parameter names), so the cache key includes the language.
+    let evalCtxKey = (seLedgerLanguage, seCostModelKey)
+    case Map.lookup evalCtxKey keyedEvalCtxs of
       Just ctx -> pure ctx
       Nothing -> do
         ctx <- mkEvalCtx case seLedgerLanguage of
           PlutusV1 -> V1.mkEvaluationContext (fromPGArray seCostModelParams)
           PlutusV2 -> V2.mkEvaluationContext (fromPGArray seCostModelParams)
           PlutusV3 -> V3.mkEvaluationContext (fromPGArray seCostModelParams)
-        let keyedEvalCtxs' = Map.insert seCostModelKey ctx keyedEvalCtxs
+          -- V4 events are recorded by a ledger that evaluates V4 through the
+          -- V3 machinery (cardano-ledger-core 1.21); replaying them through
+          -- the real V4 pipeline is faithful only while V4's parameter names
+          -- and semantics variant coincide with V3's.
+          PlutusV4 -> V4.mkEvaluationContext (fromPGArray seCostModelParams)
+        let keyedEvalCtxs' = Map.insert evalCtxKey ctx keyedEvalCtxs
         liftIO $ writeIORef evalCtxRef keyedEvalCtxs'
         pure ctx
   seiScript <-
@@ -178,10 +188,15 @@ inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
 
   let seiData :: [Data]
       seiData =
-        let addRedeemerDatum =
+        let prependDatumRedeemer = maybe id (:) seDatum . maybe id (:) seRedeemer
+            addRedeemerDatum =
               case seLedgerLanguage of
+                -- V1 and V2 pass the datum and redeemer as separate arguments;
+                -- from V3 on they are fields of the script context.
+                PlutusV1 -> prependDatumRedeemer
+                PlutusV2 -> prependDatumRedeemer
                 PlutusV3 -> id
-                _ -> maybe id (:) seDatum . maybe id (:) seRedeemer
+                PlutusV4 -> id
          in deserialise . BSL.fromStrict <$> addRedeemerDatum [seScriptContext]
   pure
     MkScriptEvaluationInput

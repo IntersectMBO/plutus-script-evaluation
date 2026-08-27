@@ -15,12 +15,16 @@ import PlutusLedgerApi.Common (
  )
 
 instance FromField PlutusLedgerLanguage where
+  -- The indexer writes this column from cardano-ledger's 'Language'
+  -- (constructor index + 1), so both enumerations must keep the same
+  -- constructor order.
   fromField f mdata = do
     i :: Int <- fromField f mdata
     case i of
       1 -> pure PlutusV1
       2 -> pure PlutusV2
       3 -> pure PlutusV3
+      4 -> pure PlutusV4
       n -> conversionError (InvalidPlutusLedgerLanguage n)
 
 newtype InvalidPlutusLedgerLanguage = InvalidPlutusLedgerLanguage Int

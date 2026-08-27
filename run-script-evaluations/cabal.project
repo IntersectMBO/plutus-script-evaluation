@@ -10,8 +10,8 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 index-state:
-  , hackage.haskell.org 2026-06-22T23:30:49Z
-  , cardano-haskell-packages 2026-06-18T17:45:00Z
+  , hackage.haskell.org 2026-08-26T00:00:00Z
+  , cardano-haskell-packages 2026-08-25T16:32:51Z
 
 write-ghc-environment-files: never
 tests: True

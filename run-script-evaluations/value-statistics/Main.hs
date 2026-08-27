@@ -335,3 +335,11 @@ deserialiseAndExtractValues ledgerLang contextBytes = do
       let outputs = V3.txInfoOutputs $ V3.scriptContextTxInfo ctx
       -- V3 uses V2.Value
       pure $ V3.txOutValue <$> outputs
+    PlutusV4 -> do
+      -- The indexer records what the ledger passes to V4 scripts, and the
+      -- ledger (cardano-ledger-core 1.21, capped below plutus-ledger-api 1.68)
+      -- reuses the V3 script context for V4, so language-4 rows hold
+      -- V3-encoded contexts and must be decoded as V3.
+      ctx <- V3.fromData contextData :: Maybe V3.ScriptContext
+      let outputs = V3.txInfoOutputs $ V3.scriptContextTxInfo ctx
+      pure $ V3.txOutValue <$> outputs

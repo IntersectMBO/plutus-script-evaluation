@@ -2,6 +2,7 @@
 
 module Database.Orphans () where
 
+import Cardano.Ledger.Plutus (Language, mkLanguageEnum)
 import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.Slot (SlotNo (..), unSlotNo)
 import Data.Bits (Bits (shiftR, xor, (.&.)))
@@ -9,7 +10,7 @@ import Data.Coerce (coerce)
 import Data.Digest.Murmur64 (Hash64, asWord64)
 import Data.Int (Int64)
 import Data.IntCast (intCast, intCastIso)
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Profunctor.Product.Default (Default (..))
 import Data.SatInt (fromSatInt, unsafeToSatInt)
 import Data.Word (Word64)
@@ -32,22 +33,30 @@ import Opaleye.Internal.PGTypes (literalColumn)
 import PlutusCore.Evaluation.Machine.ExMemory (ExCPU (..), ExMemory (..))
 import PlutusLedgerApi.Common (
   MajorProtocolVersion (MajorProtocolVersion, getMajorProtocolVersion),
-  PlutusLedgerLanguage (..),
   SatInt,
  )
 import Unsafe.Coerce (unsafeCoerce)
 
-instance Default ToFields PlutusLedgerLanguage (Field SqlInt2) where
+instance Default ToFields Language (Field SqlInt2) where
   -- DB counts constructors from 1 while derived Enum instance counts from 0,
-  -- so we need to increment by 1 when writing to DB
+  -- so we need to increment by 1 when writing to DB.
+  -- run-script-evaluations reads this column back as Plutus's
+  -- PlutusLedgerLanguage, so both enumerations must keep the same
+  -- constructor order.
   def = toToFields (sqlInt2 . succ . fromIntegral . fromEnum)
    where
     sqlInt2 = literalColumn . IntegerLit
 
-instance DefaultFromField SqlInt2 PlutusLedgerLanguage where
+instance DefaultFromField SqlInt2 Language where
   -- DB counts constructors from 1 while derived Enum instance counts from 0,
   -- so we need to decrement by 1 when reading from DB
-  defaultFromField = toEnum . pred <$> fromPGSFromField
+  defaultFromField = fromLanguageInt <$> fromPGSFromField
+   where
+    fromLanguageInt :: Int -> Language
+    fromLanguageInt n =
+      fromMaybe
+        (error ("Invalid ledger_language value in the DB: " <> show n))
+        (mkLanguageEnum (n - 1))
 
 instance Default ToFields SlotNo (Field SqlInt8) where
   def = toToFields (literalColumn . IntegerLit . fromIntegral . unSlotNo)
