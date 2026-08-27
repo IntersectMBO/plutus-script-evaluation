@@ -28,7 +28,6 @@ import PlutusLedgerApi.Common (Data, PlutusLedgerLanguage (..))
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
-import PlutusLedgerApi.V4 qualified as V4
 import System.Exit (exitFailure)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdin, stdout)
 import System.Posix.Signals (Handler (Catch), installHandler, sigINT)
@@ -337,6 +336,10 @@ deserialiseAndExtractValues ledgerLang contextBytes = do
       -- V3 uses V2.Value
       pure $ V3.txOutValue <$> outputs
     PlutusV4 -> do
-      ctx <- V4.fromData contextData :: Maybe V4.ScriptContext
-      let outputs = V4.txInfoOutputs $ V4.scriptContextTxInfo ctx
-      pure $ V4.txOutValue <$> outputs
+      -- The indexer records what the ledger passes to V4 scripts, and the
+      -- ledger (cardano-ledger-core 1.21, capped below plutus-ledger-api 1.68)
+      -- reuses the V3 script context for V4, so language-4 rows hold
+      -- V3-encoded contexts and must be decoded as V3.
+      ctx <- V3.fromData contextData :: Maybe V3.ScriptContext
+      let outputs = V3.txInfoOutputs $ V3.scriptContextTxInfo ctx
+      pure $ V3.txOutValue <$> outputs
