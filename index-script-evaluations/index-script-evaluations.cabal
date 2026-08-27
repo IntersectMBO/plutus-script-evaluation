@@ -66,12 +66,11 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting
+    , fs-api
     , int-cast
     , murmur-hash                  ^>=0.1.0.10
     , opaleye
-    , ouroboros-consensus
-    , ouroboros-consensus-cardano
-    , ouroboros-network-protocols
+    , ouroboros-network:protocols
     , path
     , path-io
     , plutus-core
@@ -97,7 +96,7 @@ executable load-script-events
 
   build-depends:
     , bytestring
-    , cardano-api               ^>=10.14.1.0
+    , cardano-api               ^>=11.6
     , cardano-ledger-binary
     , cardano-ledger-core
     , index-script-evaluations

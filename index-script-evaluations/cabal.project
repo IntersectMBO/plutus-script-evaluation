@@ -10,12 +10,12 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 index-state:
-  , hackage.haskell.org 2025-08-28T06:35:50Z
-  , cardano-haskell-packages 2025-08-27T16:08:15Z
+  , hackage.haskell.org 2026-08-26T00:00:00Z
+  , cardano-haskell-packages 2026-08-25T16:32:51Z
 
 write-ghc-environment-files: never
-tests: true
-benchmarks: true
+tests: True
+benchmarks: True
 test-show-details: direct
 
 packages: .
@@ -23,9 +23,6 @@ packages: .
 package postgresql-libpq
   flags: +use-pkg-config
 
-constraints:
-  , hashable == 1.4.7.0
-  , plutus-core == 1.45.0.0
-  , plutus-tx == 1.45.0.0
-  , plutus-tx-plugin == 1.45.0.0
-  , plutus-ledger-api == 1.45.0.0
+-- The Plutus version is pinned by cardano-api, which currently caps
+-- plutus-core / plutus-ledger-api at ^>=1.65. Do not pin them here as well:
+-- the two pins would have to be kept in lockstep by hand.
