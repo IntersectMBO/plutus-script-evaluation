@@ -37,6 +37,7 @@ import PlutusLedgerApi.Common (
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
+import PlutusLedgerApi.V4 qualified as V4
 import System.Exit (ExitCode (..))
 import Text.PrettyBy qualified as Pretty
 import UnliftIO (IORef, MonadIO, atomicModifyIORef', liftIO, newIORef, readIORef, writeIORef)
@@ -160,6 +161,7 @@ inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
           PlutusV1 -> V1.mkEvaluationContext (fromPGArray seCostModelParams)
           PlutusV2 -> V2.mkEvaluationContext (fromPGArray seCostModelParams)
           PlutusV3 -> V3.mkEvaluationContext (fromPGArray seCostModelParams)
+          PlutusV4 -> V4.mkEvaluationContext (fromPGArray seCostModelParams)
         let keyedEvalCtxs' = Map.insert seCostModelKey ctx keyedEvalCtxs
         liftIO $ writeIORef evalCtxRef keyedEvalCtxs'
         pure ctx
@@ -180,8 +182,12 @@ inputFromRecord evalCtxRef Db.MkScriptEvaluationRecord{..} = do
       seiData =
         let addRedeemerDatum =
               case seLedgerLanguage of
+                -- V1 and V2 pass the datum and redeemer as separate arguments;
+                -- from V3 on they are fields of the script context.
+                PlutusV1 -> maybe id (:) seDatum . maybe id (:) seRedeemer
+                PlutusV2 -> maybe id (:) seDatum . maybe id (:) seRedeemer
                 PlutusV3 -> id
-                _ -> maybe id (:) seDatum . maybe id (:) seRedeemer
+                PlutusV4 -> id
          in deserialise . BSL.fromStrict <$> addRedeemerDatum [seScriptContext]
   pure
     MkScriptEvaluationInput

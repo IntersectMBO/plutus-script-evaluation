@@ -28,6 +28,7 @@ import PlutusLedgerApi.Common (Data, PlutusLedgerLanguage (..))
 import PlutusLedgerApi.V1 qualified as V1
 import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V3 qualified as V3
+import PlutusLedgerApi.V4 qualified as V4
 import System.Exit (exitFailure)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdin, stdout)
 import System.Posix.Signals (Handler (Catch), installHandler, sigINT)
@@ -335,3 +336,7 @@ deserialiseAndExtractValues ledgerLang contextBytes = do
       let outputs = V3.txInfoOutputs $ V3.scriptContextTxInfo ctx
       -- V3 uses V2.Value
       pure $ V3.txOutValue <$> outputs
+    PlutusV4 -> do
+      ctx <- V4.fromData contextData :: Maybe V4.ScriptContext
+      let outputs = V4.txInfoOutputs $ V4.scriptContextTxInfo ctx
+      pure $ V4.txOutValue <$> outputs

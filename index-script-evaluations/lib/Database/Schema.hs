@@ -3,6 +3,7 @@
 
 module Database.Schema where
 
+import Cardano.Ledger.Plutus (Language)
 import Cardano.Slotting.Block (BlockNo)
 import Cardano.Slotting.Slot (SlotNo)
 import Data.Aeson qualified as Json
@@ -34,7 +35,6 @@ import PlutusLedgerApi.Common (
   ExCPU,
   ExMemory,
   MajorProtocolVersion,
-  PlutusLedgerLanguage (..),
  )
 
 --------------------------------------------------------------------------------
@@ -70,7 +70,7 @@ data SerialisedScriptRecord' hash64 ledgerLang serialised
 type SerialisedScriptRecord =
   SerialisedScriptRecord'
     ByteString -- hash
-    PlutusLedgerLanguage -- ledger_language
+    Language -- ledger_language
     ByteString -- serialised
 
 type SerialisedScriptRecordFields =
@@ -218,7 +218,7 @@ type ScriptEvaluationRecord =
     (Maybe Int64) -- pk
     SlotNo -- slot
     BlockNo -- block
-    PlutusLedgerLanguage -- ledger_language
+    Language -- ledger_language
     MajorProtocolVersion -- major_protocol_version
     Bool -- evaluated_successfully
     ExCPU -- exec_budget_cpu

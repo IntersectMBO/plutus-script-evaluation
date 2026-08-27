@@ -2,6 +2,7 @@
 
 module Database.Orphans () where
 
+import Cardano.Ledger.Plutus (Language (..))
 import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.Slot (SlotNo (..), unSlotNo)
 import Data.Bits (Bits (shiftR, xor, (.&.)))
@@ -32,19 +33,18 @@ import Opaleye.Internal.PGTypes (literalColumn)
 import PlutusCore.Evaluation.Machine.ExMemory (ExCPU (..), ExMemory (..))
 import PlutusLedgerApi.Common (
   MajorProtocolVersion (MajorProtocolVersion, getMajorProtocolVersion),
-  PlutusLedgerLanguage (..),
   SatInt,
  )
 import Unsafe.Coerce (unsafeCoerce)
 
-instance Default ToFields PlutusLedgerLanguage (Field SqlInt2) where
+instance Default ToFields Language (Field SqlInt2) where
   -- DB counts constructors from 1 while derived Enum instance counts from 0,
   -- so we need to increment by 1 when writing to DB
   def = toToFields (sqlInt2 . succ . fromIntegral . fromEnum)
    where
     sqlInt2 = literalColumn . IntegerLit
 
-instance DefaultFromField SqlInt2 PlutusLedgerLanguage where
+instance DefaultFromField SqlInt2 Language where
   -- DB counts constructors from 1 while derived Enum instance counts from 0,
   -- so we need to decrement by 1 when reading from DB
   defaultFromField = toEnum . pred <$> fromPGSFromField

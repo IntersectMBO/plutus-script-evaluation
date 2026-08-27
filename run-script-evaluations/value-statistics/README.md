@@ -19,7 +19,7 @@ A tool for analyzing Plutus `Value` structures from script contexts stored in th
 - **Graceful Interruption**: Clean Ctrl+C handling with automatic checkpoint saving
 - **Human-Readable Checkpoints**: Pretty-printed JSON format for easy inspection
 - **Cumulative Progress Tracking**: Shows overall progress when resuming from checkpoints
-- **Multi-Version Support**: Works with Plutus V1, V2, and V3
+- **Multi-Version Support**: Works with Plutus V1, V2, V3, and V4
 - **Streaming Processing**: Memory-efficient for large datasets
 - **Fail-Fast**: Stops on parse errors with detailed diagnostics
 
@@ -409,7 +409,7 @@ ERROR: Failed to parse script context at pk=12345678 with ledger language Plutus
 
 The tool exits immediately with:
 - pk of the failing row
-- Ledger language (PlutusV1/V2/V3)
+- Ledger language (PlutusV1/V2/V3/V4)
 - SQL error details if applicable
 
 ### Database Connection Issues

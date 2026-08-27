@@ -11,6 +11,7 @@ import Cardano.Ledger.Binary (encCBOR, getVersion64)
 import Cardano.Ledger.Binary qualified as Binary
 import Cardano.Ledger.Plutus (
   ExUnits (..),
+  Language,
   LegacyPlutusArgs (..),
   PlutusArgs,
   SLanguage (..),
@@ -18,11 +19,13 @@ import Cardano.Ledger.Plutus (
   isLanguage,
   plutusBinary,
   plutusFromRunnable,
+  plutusLanguage,
   plutusRunnableScriptHash,
   unPlutusBinary,
   unPlutusV1Args,
   unPlutusV2Args,
   unPlutusV3Args,
+  unPlutusV4Args,
  )
 import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..))
 import Codec.Serialise (serialise)
@@ -48,7 +51,6 @@ import PlutusCore.Evaluation.Machine.ExMemory (ExCPU, ExMemory)
 import PlutusLedgerApi.Common (
   Data,
   MajorProtocolVersion (MajorProtocolVersion),
-  PlutusLedgerLanguage (..),
   toData,
  )
 import PlutusLedgerApi.V3 (
@@ -177,11 +179,7 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
         -- versions so far, 'Int' is enough to store them.
         MajorProtocolVersion (fromIntegral (getVersion64 pwcProtocolVersion))
 
-      ssLedgerLanguage :: PlutusLedgerLanguage =
-        case isLanguage @l of
-          SPlutusV1 -> PlutusV1
-          SPlutusV2 -> PlutusV2
-          SPlutusV3 -> PlutusV3
+      ssLedgerLanguage :: Language = plutusLanguage (isLanguage @l)
 
       eeScriptContext :: ByteString =
         toStrict $ serialise @Data
@@ -193,6 +191,7 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
               LegacyPlutusArgs2 _reedemer context -> toData context
               LegacyPlutusArgs3 _datum _reedemer context -> toData context
             SPlutusV3 -> toData (unPlutusV3Args args)
+            SPlutusV4 -> toData (unPlutusV4Args args)
 
       eeDatum :: Maybe ByteString =
         toStrict . serialise @Data <$> case isLanguage @l of
@@ -203,6 +202,9 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
             LegacyPlutusArgs2 _reedemer _context -> Nothing
             LegacyPlutusArgs3 datum _reedemer _context -> Just datum
           SPlutusV3 -> case scriptContextScriptInfo (unPlutusV3Args args) of
+            SpendingScript _txOutRef optionalDatum -> toData <$> optionalDatum
+            _ -> Nothing
+          SPlutusV4 -> case scriptContextScriptInfo (unPlutusV4Args args) of
             SpendingScript _txOutRef optionalDatum -> toData <$> optionalDatum
             _ -> Nothing
 
@@ -216,6 +218,8 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
             LegacyPlutusArgs3 _datum redeemer _context -> Just redeemer
           SPlutusV3 ->
             Just (toData (scriptContextRedeemer (unPlutusV3Args args)))
+          SPlutusV4 ->
+            Just (toData (scriptContextRedeemer (unPlutusV4Args args)))
 
       ssSerialised :: ByteString =
         fromShort . unPlutusBinary . plutusBinary $
