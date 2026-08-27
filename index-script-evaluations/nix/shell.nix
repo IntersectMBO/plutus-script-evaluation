@@ -39,18 +39,9 @@ let
     src = lib.cleanSources ../.;
     
     hooks = {
-      nixpkgs-fmt = {
-        enable = false;
-        package = pkgs.nixpkgs-fmt;
-      };
       cabal-fmt = {
         enable = true;
         package = tools.cabal-fmt;
-      };
-      stylish-haskell = {
-        enable = false;
-        package = tools.stylish-haskell;
-        args = [ "--config" ".stylish-haskell.yaml" ];
       };
       fourmolu = {
         # No args: git-hooks.nix already passes --mode inplace, and fourmolu
@@ -62,10 +53,6 @@ let
         enable = true;
         package = tools.hlint;
         args = [ "--hint" ".hlint.yaml" ];
-      };
-      shellcheck = {
-        enable = false;
-        package = pkgs.shellcheck;
       };
     };
   };
