@@ -1,4 +1,4 @@
-dist-newstyle/
+dist-newstyle
 .pre-commit-config.yaml
 .envrc.local
 .vscode

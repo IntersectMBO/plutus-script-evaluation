@@ -6,6 +6,13 @@ module Streaming (
 ) where
 
 import Cardano.Api (SocketPath)
+import Cardano.Api qualified as C
+import Cardano.Slotting.Block (BlockNo (..))
+import Cardano.Slotting.Slot (WithOrigin (At, Origin), withOrigin)
+import Control.Exception (Exception, throw)
+import Control.Monad.IO.Class (liftIO)
+import GHC.Generics (Generic)
+import GHC.Word (Word64)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (SendMsgDone, SendMsgFindIntersect, SendMsgRequestNext),
   ClientStIntersect (
@@ -15,13 +22,6 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ),
   ClientStNext (ClientStNext, recvMsgRollBackward, recvMsgRollForward),
  )
-import Cardano.Api qualified as C
-import Cardano.Slotting.Block (BlockNo (..))
-import Cardano.Slotting.Slot (WithOrigin (At, Origin), withOrigin)
-import Control.Exception (Exception, throw)
-import Control.Monad.IO.Class (liftIO)
-import GHC.Generics (Generic)
-import GHC.Word (Word64)
 
 {- | `subscribeToChainSyncEvents` uses the chain-sync mini-protocol to
 connect to a locally running node and fetch blocks from the given

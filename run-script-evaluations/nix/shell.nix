@@ -44,7 +44,7 @@ let
         package = pkgs.nixpkgs-fmt;
       };
       cabal-fmt = {
-        enable = false;
+        enable = true;
         package = tools.cabal-fmt;
       };
       stylish-haskell = {
@@ -53,12 +53,13 @@ let
         args = [ "--config" ".stylish-haskell.yaml" ];
       };
       fourmolu = {
-        enable = false;
+        # No args: git-hooks.nix already passes --mode inplace, and fourmolu
+        # rejects the flag when it appears twice.
+        enable = true;
         package = tools.fourmolu;
-        args = [ "--mode" "inplace" ];
       };
       hlint = {
-        enable = false;
+        enable = true;
         package = tools.hlint;
         args = [ "--hint" ".hlint.yaml" ];
       };
