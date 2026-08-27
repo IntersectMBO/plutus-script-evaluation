@@ -43,7 +43,7 @@ common lang
     -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
     -Wredundant-constraints
 
--- Public library contains functionality for dumping and loading script events
+-- Public library contains functionality for loading script events into the database
 library
   import:          lang
   hs-source-dirs:  lib
@@ -52,9 +52,7 @@ library
     Database.Orphans
     Database.Query
     Database.Schema
-    Dump
     FileStorage
-    LedgerEvents.FileWriter
     LedgerStates
     Render
     Streaming
@@ -68,10 +66,8 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-slotting
-    , deepseq
-    , dlist
     , int-cast
-    , murmur-hash                                  ^>=0.1.0.10
+    , murmur-hash                  ^>=0.1.0.10
     , opaleye
     , ouroboros-consensus
     , ouroboros-consensus-cardano
@@ -80,30 +76,13 @@ library
     , path-io
     , plutus-core
     , plutus-ledger-api
-    , plutus-ledger-api:plutus-ledger-api-testlib
     , postgresql-simple
     , product-profunctors
     , serialise
-    , string-interpolate                           ^>=0.3
+    , string-interpolate           ^>=0.3
     , text
     , transformers
     , unliftio-core
-
--- Executable for dumping script events to file system
-executable dump-script-events
-  import:         lang
-  hs-source-dirs: dump-script-events
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  other-modules:  Options
-  build-depends:
-    , bytestring
-    , cardano-api
-    , index-script-evaluations
-    , optparse-applicative
-    , path
-    , postgresql-simple
-    , with-utf8
 
 -- Executable for uploading script events to database
 executable load-script-events

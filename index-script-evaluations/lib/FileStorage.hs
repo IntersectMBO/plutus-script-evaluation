@@ -1,7 +1,6 @@
 module FileStorage where
 
 import Cardano.Api (
-  ChainPoint,
   SlotNo (SlotNo),
   chainPointToHeaderHash,
   chainPointToSlotNo,
@@ -26,7 +25,6 @@ import Path (
   (</>),
  )
 import Path.IO (listDir, removeFile)
-import PlutusLedgerApi.Test.EvaluationEvent (ScriptEvaluationEvents)
 import Render qualified
 import Text.Printf (printf)
 import Text.Read (readMaybe)
@@ -56,34 +54,16 @@ cleanupLedgerStates checkpointDir = do
 readLedgerState :: Path Abs File -> IO Checkpoint
 readLedgerState file = CBOR.readFileDeserialise (toFilePath file)
 
-saveEvents :: Path Abs Dir -> ChainPoint -> ScriptEvaluationEvents -> IO ()
-saveEvents eventsDir point events = do
-  let slot = maybe 0 unSlotNo (chainPointToSlotNo point)
-      hash = maybe "genesis" Render.blockHash (chainPointToHeaderHash point)
-  file :: Path Rel File <-
-    addExtension ".event" =<< do
-      parseRelFile (printf "%016d-%s" slot hash)
-        & maybe (fail "Can't create events file path") pure
-  let filePath = toFilePath (eventsDir </> file)
-  putStrLn $ "Writing events to " <> filePath
-  CBOR.writeFileSerialise filePath events
-
 data Order = Asc | Desc
 
 listFilesSorted :: Order -> Path Abs Dir -> IO [(SlotNo, Path Abs File)]
-listFilesSorted order eventsDir = do
-  (_dirs, files) <- listDir eventsDir
+listFilesSorted order dir = do
+  (_dirs, files) <- listDir dir
   let direction = case order of
         Asc -> comparing fst
         Desc -> comparing (Down . fst)
       parsed = [(slot, f) | f <- files, slot <- maybeToList (parseSlotNo f)]
   pure $ sortBy direction parsed
-
-readEventsFile :: Path Abs File -> IO ScriptEvaluationEvents
-readEventsFile path = do
-  let filePath = toFilePath path
-  putStrLn $ "Reading events from " <> filePath
-  CBOR.readFileDeserialise filePath
 
 parseSlotNo :: Path Abs File -> Maybe SlotNo
 parseSlotNo fp = do
