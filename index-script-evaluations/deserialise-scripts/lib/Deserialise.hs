@@ -61,8 +61,11 @@ deserialiseScript
   -> m DB.DeserialisedScriptRecord
 deserialiseScript
   (DB.MkSerialisedScriptRecord hash _ledgerLang serialised) = do
-    let builtinPredicate _fun = Nothing -- Don't check builtins compatibility
-        decoder = decodeViaFlatWith (U.decodeProgram builtinPredicate)
+    -- decodeProgram screens constants, builtins and constructor tags against the
+    -- target protocol version. We deserialise scripts as recorded, so accept all.
+    let acceptAll :: a -> Maybe String
+        acceptAll _ = Nothing
+        decoder = decodeViaFlatWith (U.decodeProgram acceptAll acceptAll acceptAll)
     uplc :: U.Program FakeNamedDeBruijn U.DefaultUni U.DefaultFun () <-
       case CBOR.deserialiseFromBytes decoder (BS.fromStrict serialised) of
         Left err ->

@@ -1,7 +1,8 @@
 module LedgerStates where
 
 import Cardano.Api (BlockNo, FileDirection (In), NodeConfigFile, docToString)
-import Cardano.Api.Shelley qualified as C
+import Cardano.Api qualified as C
+import Cardano.Api.LedgerState qualified as C
 import Control.Exception (throwIO)
 import Control.Monad.Trans.Except (runExceptT)
 import Data.Function ((&))
@@ -11,6 +12,8 @@ import FileStorage qualified
 import Path (Abs, Dir, Path)
 import Render qualified
 import Streaming (ChainSyncEvent (RollBackward, RollForward))
+import System.FS.API (MountPoint (MountPoint), SomeHasFS (SomeHasFS))
+import System.FS.IO (ioHasFS)
 import Types (Checkpoint (Checkpoint))
 
 data IndexerState = IndexerState
@@ -45,10 +48,17 @@ makeLedgerStateEventsIndexer initialIndexerState startedFrom callback = do
         C.ChainPoint _slotNo _tip -> do
           fail $ "Unexpected rollback: " <> Render.chainPointSlot point
 
+{- | cardano-api 11 reads the node config through an abstract file system.
+Mounting at the root means the @--config@ path is used as given, so it has to
+be absolute.
+-}
+nodeConfigFs :: SomeHasFS IO
+nodeConfigFs = SomeHasFS (ioHasFS (MountPoint "/"))
+
 lastCheckpoint :: NodeConfigFile 'In -> Path Abs Dir -> IO (C.Env, Checkpoint)
 lastCheckpoint optsConfigPath checkpointsDir = do
   (env, ledgerStateAtGenesis) <-
-    runExceptT (C.initialLedgerState optsConfigPath)
+    runExceptT (C.initialLedgerState nodeConfigFs optsConfigPath)
       >>= either (fail . docToString . C.prettyError) pure
   checkpoints <- FileStorage.listFilesSorted Asc checkpointsDir
   (env,) <$> case checkpoints of

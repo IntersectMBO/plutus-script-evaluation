@@ -1,12 +1,12 @@
 module LedgerEvents.DbLoader where
 
-import Cardano.Api.Shelley (
+import Cardano.Api (
   BlockNo (..),
-  LedgerEvent (..),
   SlotNo (..),
   chainPointToSlotNo,
   unBlockNo,
  )
+import Cardano.Api.LedgerState (LedgerEvent (..))
 import Cardano.Ledger.Binary (encCBOR, getVersion64)
 import Cardano.Ledger.Binary qualified as Binary
 import Cardano.Ledger.Plutus (
@@ -18,6 +18,7 @@ import Cardano.Ledger.Plutus (
   isLanguage,
   plutusBinary,
   plutusFromRunnable,
+  plutusRunnableScriptHash,
   unPlutusBinary,
   unPlutusV1Args,
   unPlutusV2Args,
@@ -127,7 +128,6 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
       { pwcArgs = args :: PlutusArgs l
       , pwcCostModel
       , pwcScript
-      , pwcScriptHash
       , pwcProtocolVersion
       , pwcExUnits
       }
@@ -219,10 +219,10 @@ indexLedgerEvents eeSlotNo eeBlockNo = foldr indexLedgerEvent []
 
       ssSerialised :: ByteString =
         fromShort . unPlutusBinary . plutusBinary $
-          either id plutusFromRunnable pwcScript
+          plutusFromRunnable pwcScript
 
       eeScriptHash :: ByteString =
-        pwcScriptHash
+        plutusRunnableScriptHash pwcScript
           & encCBOR
           & Binary.toBuilder pwcProtocolVersion
           & toLazyByteString
