@@ -71,6 +71,28 @@ executable run-script-evaluations
     , unliftio
     , with-utf8
 
+executable check-decoder-bounds
+  import:         lang
+  hs-source-dirs: check-decoder-bounds run-evaluations
+  main-is:        Main.hs
+  ghc-options:    -threaded -with-rtsopts=-N
+  other-modules:
+    Database.PostgreSQL.Simple.Orphans
+    Options
+
+  build-depends:
+    , base                  >=4.9      && <5
+    , bytestring
+    , cborg
+    , containers
+    , optparse-applicative
+    , plutus-core           >=1.68.0.0
+    , plutus-ledger-api     >=1.68.0.0
+    , postgresql-simple
+    , some
+    , text
+    , with-utf8
+
 executable value-statistics
   import:         lang
   hs-source-dirs: value-statistics run-evaluations
