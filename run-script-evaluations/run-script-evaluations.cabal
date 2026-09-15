@@ -85,6 +85,7 @@ executable check-decoder-bounds
     , bytestring
     , cborg
     , containers
+    , nothunks
     , optparse-applicative
     , plutus-core           >=1.68.0.0
     , plutus-ledger-api     >=1.68.0.0

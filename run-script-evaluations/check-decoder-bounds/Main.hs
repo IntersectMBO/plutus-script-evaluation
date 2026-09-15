@@ -17,7 +17,9 @@ import Data.Text.Encoding (decodeUtf8)
 import Database.PostgreSQL.Simple qualified as PG
 import Database.PostgreSQL.Simple.Orphans ()
 import Database.PostgreSQL.Simple.Types (Only (..))
+import GHC.Generics (Generic)
 import Main.Utf8 (withUtf8)
+import NoThunks.Class (NoThunks, unsafeNoThunks)
 import Options (Options (..), parserInfo)
 import Options.Applicative (execParser)
 import PlutusCore (ValueOf (..))
@@ -45,38 +47,92 @@ break cannot grow the heap with the table.
 maxReportedSamples :: Int64
 maxReportedSamples = 100
 
+{- | How often to print progress and assert that the accumulator carries no
+thunks. 'assertNoThunks' walks the whole accumulator, so it must not run per
+row.
+-}
+progressInterval :: Int64
+progressInterval = 10_000
+
 data ScriptMeasures = MkScriptMeasures
   { smHeaderSize :: !Int
   , smConstrFields :: !Int
   }
-  deriving stock (Show)
+  deriving stock (Show, Generic)
+  deriving anyclass (NoThunks)
 
 data Extreme = MkExtreme
   { exValue :: !Int
   , exHash :: !Text
   }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
 
 data LangStats = MkLangStats
   { lsCount :: !Int64
   , lsMaxHeader :: !Extreme
   , lsMaxConstr :: !Extreme
   }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
+
+-- | A script that exceeds at least one of the bounds.
+data Violation = MkViolation
+  { vlHash :: !Text
+  , vlLanguage :: !PlutusLedgerLanguage
+  , vlMeasures :: !ScriptMeasures
+  }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
+
+{- | A row we could not decode. The message is 'Text' rather than 'String': the
+cons cells of a lazily produced 'String' are themselves thunks, which both
+retains the underlying failure and trips 'assertNoThunks'.
+-}
+data DecodeFailure = MkDecodeFailure
+  { dfHash :: !Text
+  , dfError :: !Text
+  }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
 
 data FoldState = MkFoldState
   { fsRowCount :: !Int64
   , fsPerLanguage :: !(Map PlutusLedgerLanguage LangStats)
   , fsViolationCount :: !Int64
   -- ^ exact count, unlike 'fsViolations'
-  , fsViolations :: ![(Text, PlutusLedgerLanguage, ScriptMeasures)]
+  , fsViolations :: ![Violation]
   -- ^ at most 'maxReportedSamples' entries, newest first
   , fsDecodeFailureCount :: !Int64
   -- ^ exact count, unlike 'fsDecodeFailures'
-  , fsDecodeFailures :: ![(Text, String)]
+  , fsDecodeFailures :: ![DecodeFailure]
   -- ^ at most 'maxReportedSamples' entries, newest first
   }
+  deriving stock (Generic)
+  deriving anyclass (NoThunks)
 
 initialState :: FoldState
 initialState = MkFoldState 0 Map.empty 0 [] 0 []
+
+{- | Fail loudly if the accumulator has grown a thunk. Every 'FoldState' field is
+strict, and the bang on @newRowCount@ in 'processRow' forces the incoming state
+each row, so the structure should stay fully evaluated. That reasoning is four
+steps long and one careless edit breaks it silently, hence the assertion.
+-}
+assertNoThunks :: FoldState -> IO ()
+assertNoThunks st =
+  case unsafeNoThunks st of
+    Nothing -> pure ()
+    Just info ->
+      error $ "Thunk detected in the fold accumulator: " <> show info
+
+{- | Prepend an element, forcing it. A plain list has a lazy head, so a bang on
+the list alone forces only the cons cell: the element stays a thunk and the
+strict fields inside it never fire. 'assertNoThunks' reports exactly that as
+@["DecodeFailure","List","fsDecodeFailures","FoldState"]@.
+-}
+strictCons :: a -> [a] -> [a]
+strictCons !x xs = x : xs
 
 main :: IO ()
 main = withUtf8 do
@@ -139,45 +195,46 @@ processRow
   -> IO FoldState
 processRow totalCount st@MkFoldState{..} (hashHex, lang, serialised) = do
   let !newRowCount = fsRowCount + 1
-  when (newRowCount `mod` 10_000 == 0) do
+      !next = case decodeScriptTerm serialised of
+        Left err ->
+          let !newFailureCount = fsDecodeFailureCount + 1
+              !newFailures
+                | newFailureCount <= maxReportedSamples =
+                    MkDecodeFailure hashHex (Text.pack err) `strictCons` fsDecodeFailures
+                | otherwise = fsDecodeFailures
+           in st
+                { fsRowCount = newRowCount
+                , fsDecodeFailureCount = newFailureCount
+                , fsDecodeFailures = newFailures
+                }
+        Right term ->
+          let !measures = measureTerm term
+              violates =
+                smHeaderSize measures > maxHeaderBound
+                  || smConstrFields measures > maxConstrBound
+              !newPerLanguage =
+                Map.insertWith
+                  (<>)
+                  lang
+                  (langStats hashHex measures)
+                  fsPerLanguage
+              !newViolationCount = if violates then fsViolationCount + 1 else fsViolationCount
+              !newViolations
+                | violates
+                , newViolationCount <= maxReportedSamples =
+                    MkViolation hashHex lang measures `strictCons` fsViolations
+                | otherwise = fsViolations
+           in st
+                { fsRowCount = newRowCount
+                , fsPerLanguage = newPerLanguage
+                , fsViolationCount = newViolationCount
+                , fsViolations = newViolations
+                }
+  when (newRowCount `mod` progressInterval == 0) do
     let percent = (100.0 :: Double) * fromIntegral newRowCount / fromIntegral (max 1 totalCount)
     printf "Processed %d / %d scripts (%.2f%%)\n" newRowCount totalCount percent
-  case decodeScriptTerm serialised of
-    Left err ->
-      let !newFailureCount = fsDecodeFailureCount + 1
-          !newFailures
-            | newFailureCount <= maxReportedSamples = (hashHex, err) : fsDecodeFailures
-            | otherwise = fsDecodeFailures
-       in pure
-            st
-              { fsRowCount = newRowCount
-              , fsDecodeFailureCount = newFailureCount
-              , fsDecodeFailures = newFailures
-              }
-    Right term -> do
-      let !measures = measureTerm term
-          violates =
-            smHeaderSize measures > maxHeaderBound
-              || smConstrFields measures > maxConstrBound
-          !newPerLanguage =
-            Map.insertWith
-              (<>)
-              lang
-              (langStats hashHex measures)
-              fsPerLanguage
-          !newViolationCount = if violates then fsViolationCount + 1 else fsViolationCount
-          !newViolations
-            | violates
-            , newViolationCount <= maxReportedSamples =
-                (hashHex, lang, measures) : fsViolations
-            | otherwise = fsViolations
-      pure
-        st
-          { fsRowCount = newRowCount
-          , fsPerLanguage = newPerLanguage
-          , fsViolationCount = newViolationCount
-          , fsViolations = newViolations
-          }
+    assertNoThunks next
+  pure next
 
 decodeScriptTerm
   :: BS.ByteString
@@ -254,20 +311,20 @@ printReport MkFoldState{..} = do
 
   unless (fsDecodeFailureCount == 0) do
     printSampleHeader "DECODE FAILURES" fsDecodeFailureCount (length fsDecodeFailures)
-    forM_ (reverse fsDecodeFailures) \(hashHex, err) ->
-      printf "  %s: %s\n" (Text.unpack hashHex) err
+    forM_ (reverse fsDecodeFailures) \MkDecodeFailure{..} ->
+      printf "  %s: %s\n" (Text.unpack dfHash) (Text.unpack dfError)
 
   if fsViolationCount == 0
     then putStrLn "\nNo script exceeds the vanRossemPV bounds."
     else do
       printSampleHeader "VIOLATIONS" fsViolationCount (length fsViolations)
-      forM_ (reverse fsViolations) \(hashHex, lang, MkScriptMeasures{..}) ->
+      forM_ (reverse fsViolations) \MkViolation{vlHash, vlLanguage, vlMeasures} ->
         printf
           "  %s (%s): header size %d, constr fields %d\n"
-          (Text.unpack hashHex)
-          (show lang)
-          smHeaderSize
-          smConstrFields
+          (Text.unpack vlHash)
+          (show vlLanguage)
+          (smHeaderSize vlMeasures)
+          (smConstrFields vlMeasures)
 
   -- A violation and a decode failure are different outcomes, so they get
   -- different exit codes: 1 means a script exceeds the bounds, 2 means the
