@@ -25,7 +25,7 @@ import PlutusCore.DeBruijn.Internal (FakeNamedDeBruijn)
 import PlutusCore.Default (defaultUniSize)
 import PlutusLedgerApi.Common (PlutusLedgerLanguage, vanRossemPV)
 import PlutusLedgerApi.Common.Versions (MaxBounds (..), maxBoundsByPV)
-import System.Exit (die, exitFailure)
+import System.Exit (ExitCode (ExitFailure), die, exitFailure, exitWith)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdout)
 import Text.Printf (printf)
 import UntypedPlutusCore qualified as U
@@ -246,4 +246,11 @@ printReport MkFoldState{..} = do
           smHeaderSize
           smConstrFields
 
-  unless (null fsViolations && null fsDecodeFailures) exitFailure
+  -- A violation and a decode failure are different outcomes, so they get
+  -- different exit codes: 1 means a script exceeds the bounds, 2 means the
+  -- evidence is incomplete because some rows did not decode.
+  if not (null fsViolations)
+    then exitWith (ExitFailure 1)
+    else unless (null fsDecodeFailures) do
+      putStrLn "Evidence is incomplete: some rows failed to decode."
+      exitWith (ExitFailure 2)
