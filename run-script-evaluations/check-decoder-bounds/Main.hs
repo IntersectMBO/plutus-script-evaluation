@@ -25,7 +25,7 @@ import PlutusCore.DeBruijn.Internal (FakeNamedDeBruijn)
 import PlutusCore.Default (defaultUniSize)
 import PlutusLedgerApi.Common (PlutusLedgerLanguage, vanRossemPV)
 import PlutusLedgerApi.Common.Versions (MaxBounds (..), maxBoundsByPV)
-import System.Exit (exitFailure)
+import System.Exit (die, exitFailure)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdout)
 import Text.Printf (printf)
 import UntypedPlutusCore qualified as U
@@ -74,8 +74,7 @@ main = withUtf8 do
       (PG.connectPostgreSQL optsDatabaseConnStr)
       (\conn -> PG.close conn `catch` \(_ :: PG.SqlError) -> pure ())
       \conn -> do
-        [Only (totalCount :: Int64)] <-
-          PG.query_ conn "SELECT COUNT(*) FROM serialised_scripts"
+        totalCount <- countScripts conn
         printf "Checking %d distinct scripts...\n" totalCount
         finalState <-
           PG.fold_
@@ -85,6 +84,22 @@ main = withUtf8 do
             initialState
             (processRow totalCount)
         printReport finalState
+
+{- | Total row count, used only for the progress display. An explicit case
+rather than a one-row pattern bind: a pattern-match failure here would be an
+opaque @user error@ that walks straight past 'displaySqlError'.
+-}
+countScripts :: PG.Connection -> IO Int64
+countScripts conn = do
+  rows :: [Only Int64] <-
+    PG.query_ conn "SELECT COUNT(*) FROM serialised_scripts"
+  case rows of
+    [Only n] -> pure n
+    _ ->
+      die $
+        "SELECT COUNT(*) FROM serialised_scripts returned "
+          <> show (length rows)
+          <> " rows, expected exactly 1"
 
 displaySqlError :: IO () -> IO ()
 displaySqlError action =
