@@ -23,15 +23,20 @@ import Options.Applicative (execParser)
 import PlutusCore (ValueOf (..))
 import PlutusCore.DeBruijn.Internal (FakeNamedDeBruijn)
 import PlutusCore.Default (defaultUniSize)
-import PlutusLedgerApi.Common (PlutusLedgerLanguage)
+import PlutusLedgerApi.Common (PlutusLedgerLanguage, vanRossemPV)
+import PlutusLedgerApi.Common.Versions (MaxBounds (..), maxBoundsByPV)
 import System.Exit (exitFailure)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stdout)
 import Text.Printf (printf)
 import UntypedPlutusCore qualified as U
 
+-- | The bounds we are testing against, taken from plutus rather than copied.
+strictBounds :: MaxBounds
+strictBounds = maxBoundsByPV vanRossemPV
+
 maxHeaderBound, maxConstrBound :: Int
-maxHeaderBound = 32
-maxConstrBound = 1024
+maxHeaderBound = mbHeader strictBounds
+maxConstrBound = mbConstr strictBounds
 
 data ScriptMeasures = MkScriptMeasures
   { smHeaderSize :: !Int
