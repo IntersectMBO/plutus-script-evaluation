@@ -38,6 +38,13 @@ maxHeaderBound, maxConstrBound :: Int
 maxHeaderBound = mbHeader strictBounds
 maxConstrBound = mbConstr strictBounds
 
+{- | How many violations and decode failures to keep for the report. The counts
+are always exact; only the listed examples are capped, so a systemic decode
+break cannot grow the heap with the table.
+-}
+maxReportedSamples :: Int64
+maxReportedSamples = 100
+
 data ScriptMeasures = MkScriptMeasures
   { smHeaderSize :: !Int
   , smConstrFields :: !Int
@@ -58,12 +65,18 @@ data LangStats = MkLangStats
 data FoldState = MkFoldState
   { fsRowCount :: !Int64
   , fsPerLanguage :: !(Map PlutusLedgerLanguage LangStats)
+  , fsViolationCount :: !Int64
+  -- ^ exact count, unlike 'fsViolations'
   , fsViolations :: ![(Text, PlutusLedgerLanguage, ScriptMeasures)]
+  -- ^ at most 'maxReportedSamples' entries, newest first
+  , fsDecodeFailureCount :: !Int64
+  -- ^ exact count, unlike 'fsDecodeFailures'
   , fsDecodeFailures :: ![(Text, String)]
+  -- ^ at most 'maxReportedSamples' entries, newest first
   }
 
 initialState :: FoldState
-initialState = MkFoldState 0 Map.empty [] []
+initialState = MkFoldState 0 Map.empty 0 [] 0 []
 
 main :: IO ()
 main = withUtf8 do
@@ -131,28 +144,38 @@ processRow totalCount st@MkFoldState{..} (hashHex, lang, serialised) = do
     printf "Processed %d / %d scripts (%.2f%%)\n" newRowCount totalCount percent
   case decodeScriptTerm serialised of
     Left err ->
-      pure
-        st
-          { fsRowCount = newRowCount
-          , fsDecodeFailures = (hashHex, err) : fsDecodeFailures
-          }
+      let !newFailureCount = fsDecodeFailureCount + 1
+          !newFailures
+            | newFailureCount <= maxReportedSamples = (hashHex, err) : fsDecodeFailures
+            | otherwise = fsDecodeFailures
+       in pure
+            st
+              { fsRowCount = newRowCount
+              , fsDecodeFailureCount = newFailureCount
+              , fsDecodeFailures = newFailures
+              }
     Right term -> do
       let !measures = measureTerm term
+          violates =
+            smHeaderSize measures > maxHeaderBound
+              || smConstrFields measures > maxConstrBound
           !newPerLanguage =
             Map.insertWith
               (<>)
               lang
               (langStats hashHex measures)
               fsPerLanguage
-          !newViolations =
-            if smHeaderSize measures > maxHeaderBound
-              || smConstrFields measures > maxConstrBound
-              then (hashHex, lang, measures) : fsViolations
-              else fsViolations
+          !newViolationCount = if violates then fsViolationCount + 1 else fsViolationCount
+          !newViolations
+            | violates
+            , newViolationCount <= maxReportedSamples =
+                (hashHex, lang, measures) : fsViolations
+            | otherwise = fsViolations
       pure
         st
           { fsRowCount = newRowCount
           , fsPerLanguage = newPerLanguage
+          , fsViolationCount = newViolationCount
           , fsViolations = newViolations
           }
 
@@ -229,16 +252,16 @@ printReport MkFoldState{..} = do
   printf "\nGlobal max constant type header size: %d (bound: %d)\n" (globalMax lsMaxHeader) maxHeaderBound
   printf "Global max constr field count:        %d (bound: %d)\n" (globalMax lsMaxConstr) maxConstrBound
 
-  unless (null fsDecodeFailures) do
-    printf "\nDECODE FAILURES (%d):\n" (length fsDecodeFailures)
-    forM_ fsDecodeFailures \(hashHex, err) ->
+  unless (fsDecodeFailureCount == 0) do
+    printSampleHeader "DECODE FAILURES" fsDecodeFailureCount (length fsDecodeFailures)
+    forM_ (reverse fsDecodeFailures) \(hashHex, err) ->
       printf "  %s: %s\n" (Text.unpack hashHex) err
 
-  if null fsViolations
+  if fsViolationCount == 0
     then putStrLn "\nNo script exceeds the vanRossemPV bounds."
     else do
-      printf "\nVIOLATIONS (%d):\n" (length fsViolations)
-      forM_ fsViolations \(hashHex, lang, MkScriptMeasures{..}) ->
+      printSampleHeader "VIOLATIONS" fsViolationCount (length fsViolations)
+      forM_ (reverse fsViolations) \(hashHex, lang, MkScriptMeasures{..}) ->
         printf
           "  %s (%s): header size %d, constr fields %d\n"
           (Text.unpack hashHex)
@@ -249,8 +272,13 @@ printReport MkFoldState{..} = do
   -- A violation and a decode failure are different outcomes, so they get
   -- different exit codes: 1 means a script exceeds the bounds, 2 means the
   -- evidence is incomplete because some rows did not decode.
-  if not (null fsViolations)
+  if fsViolationCount > 0
     then exitWith (ExitFailure 1)
-    else unless (null fsDecodeFailures) do
+    else unless (fsDecodeFailureCount == 0) do
       putStrLn "Evidence is incomplete: some rows failed to decode."
       exitWith (ExitFailure 2)
+
+printSampleHeader :: String -> Int64 -> Int -> IO ()
+printSampleHeader label total shown
+  | fromIntegral shown >= total = printf "\n%s (%d):\n" label total
+  | otherwise = printf "\n%s (%d, showing the first %d):\n" label total shown
