@@ -23,7 +23,10 @@ checks disabled and computes per script:
 - the maximum `defaultUniSize` over its constants,
 - the maximum field count over its `constr` terms.
 
-The exit code is non-zero if there are violations or decode failures.
+Exit codes: `0` if nothing exceeds the bounds, `1` if some script does, `2` if
+nothing does but some rows failed to decode, which makes the evidence
+incomplete. Counts are exact; the report lists at most the first 100 violations
+and the first 100 decode failures.
 
 ## Usage
 
